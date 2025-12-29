@@ -1,5 +1,23 @@
-//
+//app/page.tsx
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+import Link from 'next/link';
+import Button from '@/components/Button';
+
 export default function Home() {
+  const { user } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    // If user is logged in, redirect to dashboard
+    if (user) {
+      router.push('/dashboard');
+    }
+  }, [user, router]);
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-24 bg-gradient-to-b from-blue-50 to-blue-100">
       <div className="text-center">
@@ -11,18 +29,30 @@ export default function Home() {
         </p>
         <div className="bg-white p-8 rounded-lg shadow-lg max-w-md">
           <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-            Phase 1 Complete! ✅
+            Get Started
           </h2>
-          <ul className="text-left text-gray-600 space-y-2">
-            <li>✅ Next.js 14 with TypeScript</li>
-            <li>✅ Tailwind CSS configured</li>
-            <li>✅ Firebase connected</li>
-            <li>✅ Project structure ready</li>
-            <li>✅ Type definitions created</li>
-          </ul>
-          <p className="mt-6 text-sm text-gray-500">
-            Next: Phase 2 - Authentication System
+          <p className="text-gray-600 mb-6">
+            Track infant sleep sessions and maintain compliance with California Title 22 regulations.
           </p>
+          
+          <div className="space-y-3">
+            <Link href="/signup" className="block">
+              <Button variant="primary" className="w-full">
+                Create Account
+              </Button>
+            </Link>
+            <Link href="/login" className="block">
+              <Button variant="secondary" className="w-full">
+                Sign In
+              </Button>
+            </Link>
+          </div>
+
+          <div className="mt-6 pt-6 border-t">
+            <p className="text-xs text-gray-500">
+              Built for compliance with Title 22, Section 101229
+            </p>
+          </div>
         </div>
       </div>
     </main>
