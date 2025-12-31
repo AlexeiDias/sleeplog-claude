@@ -1,4 +1,4 @@
-//app/reports/page.tsx
+//app/analytics/page.tsx
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,17 +7,17 @@ import { useEffect, useState } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Button from '@/components/Button';
-import DatePicker from '@/components/DatePicker';
-import HistoricalChildCard from '@/components/HistoricalChildCard';
-import { Child } from '@/types';
+import SleepAnalytics from '@/components/SleepAnalytics';
+import { Child, SleepLogEntry } from '@/types';
+import { exportAllChildrenToCSV } from '@/utils/csvExport';
 import Link from 'next/link';
 
-export default function ReportsPage() {
+export default function AnalyticsPage() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -62,6 +62,65 @@ export default function ReportsPage() {
     router.push('/login');
   }
 
+  async function handleExportCSV() {
+    if (children.length === 0) {
+      alert('No children data to export');
+      return;
+    }
+
+    setExporting(true);
+
+    try {
+      // Get last 7 days of data for all children
+      const allData: Array<{ child: Child; entries: SleepLogEntry[] }> = [];
+      const today = new Date();
+
+      for (const child of children) {
+        const childEntries: SleepLogEntry[] = [];
+
+        for (let i = 0; i < 7; i++) {
+          const date = new Date(today);
+          date.setDate(date.getDate() - i);
+          const dateStr = date.toISOString().split('T')[0];
+
+          const logsRef = collection(db, 'children', child.id, 'sleepLogs', dateStr, 'entries');
+          const snapshot = await getDocs(logsRef);
+
+          const entries = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            timestamp: doc.data().timestamp?.toDate() || new Date(),
+          })) as SleepLogEntry[];
+
+          childEntries.push(...entries);
+        }
+
+        if (childEntries.length > 0) {
+          allData.push({ child, entries: childEntries });
+        }
+      }
+
+      if (allData.length === 0) {
+        alert('No sleep data found in the last 7 days');
+        return;
+      }
+
+      // Export to CSV
+      const startDate = new Date(today);
+      startDate.setDate(startDate.getDate() - 6);
+      const dateRange = `${startDate.toISOString().split('T')[0]}_to_${today.toISOString().split('T')[0]}`;
+      
+      exportAllChildrenToCSV(allData, dateRange);
+      alert('CSV exported successfully!');
+
+    } catch (error) {
+      console.error('Error exporting CSV:', error);
+      alert('Failed to export CSV');
+    } finally {
+      setExporting(false);
+    }
+  }
+
   if (!user || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -72,8 +131,6 @@ export default function ReportsPage() {
       </div>
     );
   }
-
-  const isToday = selectedDate === new Date().toISOString().split('T')[0];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -93,10 +150,10 @@ export default function ReportsPage() {
                   Staff
                 </Link>
               )}
-              <Link href="/reports" className="text-blue-600 font-medium">
+              <Link href="/reports" className="text-gray-600 hover:text-gray-900">
                 Reports
               </Link>
-              <Link href="/analytics" className="text-gray-600 hover:text-gray-900">
+              <Link href="/analytics" className="text-blue-600 font-medium">
                 Analytics
               </Link>
               <Link href="/settings" className="text-gray-600 hover:text-gray-900">
@@ -120,26 +177,14 @@ export default function ReportsPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-6">
-          <h2 className="text-3xl font-bold text-gray-800 mb-4">Historical Reports</h2>
-          
-          {/* Date Picker */}
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <DatePicker
-              selectedDate={selectedDate}
-              onDateChange={setSelectedDate}
-              label="View Reports For"
-            />
-            
-            {isToday && (
-              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded text-sm text-blue-800">
-                <strong>💡 Tip:</strong> You're viewing today's data. For live tracking, go to the{' '}
-                <Link href="/dashboard" className="underline font-medium">
-                  Dashboard
-                </Link>
-              </div>
-            )}
+        <div className="mb-6 flex justify-between items-center">
+          <div>
+            <h2 className="text-3xl font-bold text-gray-800">Sleep Analytics</h2>
+            <p className="text-gray-600 mt-1">Weekly trends and statistics</p>
           </div>
+          <Button variant="secondary" onClick={handleExportCSV} isLoading={exporting}>
+            📥 Export CSV (7 Days)
+          </Button>
         </div>
 
         {children.length === 0 ? (
@@ -149,7 +194,7 @@ export default function ReportsPage() {
               No Children Registered
             </h3>
             <p className="text-gray-600 mb-6">
-              Add families to start viewing sleep reports
+              Add families to start viewing analytics
             </p>
             {user.role === 'admin' && (
               <Button
@@ -161,16 +206,23 @@ export default function ReportsPage() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="space-y-6">
             {children.map((child) => (
-              <HistoricalChildCard
-                key={child.id}
-                child={child}
-                selectedDate={selectedDate}
-              />
+              <SleepAnalytics key={child.id} child={child} />
             ))}
           </div>
         )}
+
+        {/* Info Box */}
+        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-blue-900 mb-2">📊 About Analytics</h3>
+          <ul className="text-sm text-blue-800 space-y-1">
+            <li>• Shows sleep data for the last 7 days</li>
+            <li>• Average daily sleep excludes days with no sleep logs</li>
+            <li>• Charts update automatically as new sleep logs are added</li>
+            <li>• Export feature allows downloading all data as CSV</li>
+          </ul>
+        </div>
       </main>
     </div>
   );

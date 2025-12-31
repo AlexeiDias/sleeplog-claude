@@ -143,6 +143,9 @@ export default function StaffManagementPage() {
               <Link href="/reports" className="text-gray-600 hover:text-gray-900">
                 Reports
               </Link>
+              <Link href="/analytics" className="text-gray-600 hover:text-gray-900">
+                Analytics
+              </Link>
               <Link href="/settings" className="text-gray-600 hover:text-gray-900">
                 Settings
               </Link>

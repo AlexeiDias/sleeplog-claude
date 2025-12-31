@@ -61,6 +61,9 @@ export default function SettingsLayout({
               <Link href="/reports" className="text-gray-600 hover:text-gray-900">
                 Reports
               </Link>
+              <Link href="/analytics" className="text-gray-600 hover:text-gray-900">
+                Analytics
+              </Link>
               <Link href="/settings" className="text-blue-600 font-medium">
                 Settings
               </Link>
