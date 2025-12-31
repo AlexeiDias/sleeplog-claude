@@ -1,4 +1,4 @@
-//app/api/settings/layout.tsx
+//app/settings/layout.tsx
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -58,6 +58,9 @@ export default function SettingsLayout({
                   Staff
                 </Link>
               )}
+              <Link href="/reports" className="text-gray-600 hover:text-gray-900">
+                Reports
+              </Link>
               <Link href="/settings" className="text-blue-600 font-medium">
                 Settings
               </Link>

@@ -87,6 +87,9 @@ export default function DashboardPage() {
                   Staff
                 </Link>
               )}
+              <Link href="/reports" className="text-gray-600 hover:text-gray-900">
+                Reports
+              </Link>
               <Link href="/settings" className="text-gray-600 hover:text-gray-900">
                 Settings
               </Link>
