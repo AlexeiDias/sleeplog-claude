@@ -80,8 +80,13 @@ export default function DashboardPage() {
       <nav className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
+            <div className="flex items-center space-x-8">
               <h1 className="text-2xl font-bold text-blue-900">💤 SleepLog</h1>
+              {user.role === 'admin' && (
+                <Link href="/staff" className="text-gray-600 hover:text-gray-900">
+                  Staff
+                </Link>
+              )}
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">
@@ -133,12 +138,14 @@ export default function DashboardPage() {
           <h2 className="text-3xl font-bold text-gray-800">
             Children Dashboard
           </h2>
-          <Button
-            variant="primary"
-            onClick={() => router.push('/register/family')}
-          >
-            + Add Family
-          </Button>
+          {user.role === 'admin' && (
+            <Button
+              variant="primary"
+              onClick={() => router.push('/register/family')}
+            >
+              + Add Family
+            </Button>
+          )}
         </div>
 
         {children.length === 0 ? (
@@ -148,14 +155,18 @@ export default function DashboardPage() {
               No Children Registered Yet
             </h3>
             <p className="text-gray-600 mb-6">
-              Add your first family to start tracking sleep sessions
+              {user.role === 'admin' 
+                ? 'Add your first family to start tracking sleep sessions'
+                : 'No children have been added to this daycare yet'}
             </p>
-            <Button
-              variant="primary"
-              onClick={() => router.push('/register/family')}
-            >
-              Add First Family
-            </Button>
+            {user.role === 'admin' && (
+              <Button
+                variant="primary"
+                onClick={() => router.push('/register/family')}
+              >
+                Add First Family
+              </Button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
