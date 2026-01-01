@@ -44,6 +44,7 @@ export interface Child {
   id: string;
   name: string;
   dateOfBirth: Date;
+  photoUrl?: string; // ← ADDED: Optional photo URL
   familyId: string;
   daycareId: string;
   createdAt: Date;

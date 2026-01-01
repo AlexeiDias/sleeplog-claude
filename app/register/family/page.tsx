@@ -8,11 +8,13 @@ import { doc, setDoc, collection } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
+import ImageUpload from '@/components/ImageUpload';
 
 interface Child {
   id: string;
   name: string;
   dateOfBirth: string;
+  photoUrl: string;
 }
 
 export default function FamilyRegistrationPage() {
@@ -29,7 +31,7 @@ export default function FamilyRegistrationPage() {
   });
 
   const [children, setChildren] = useState<Child[]>([
-    { id: '1', name: '', dateOfBirth: '' }
+    { id: '1', name: '', dateOfBirth: '', photoUrl: '' }
   ]);
 
   useEffect(() => {
@@ -67,9 +69,15 @@ export default function FamilyRegistrationPage() {
     ));
   }
 
+  function handlePhotoUpload(id: string, photoUrl: string) {
+    setChildren(children.map(child => 
+      child.id === id ? { ...child, photoUrl } : child
+    ));
+  }
+
   function addChild() {
     const newId = (children.length + 1).toString();
-    setChildren([...children, { id: newId, name: '', dateOfBirth: '' }]);
+    setChildren([...children, { id: newId, name: '', dateOfBirth: '', photoUrl: '' }]);
   }
 
   function removeChild(id: string) {
@@ -110,6 +118,7 @@ export default function FamilyRegistrationPage() {
         await setDoc(doc(db, 'children', childId), {
           name: child.name.trim(),
           dateOfBirth: new Date(child.dateOfBirth),
+          photoUrl: child.photoUrl || '',
           familyId,
           daycareId: user.daycareId,
           createdAt: new Date(),
@@ -220,8 +229,8 @@ export default function FamilyRegistrationPage() {
 
               <div className="space-y-6">
                 {children.map((child, index) => (
-                  <div key={child.id} className="p-4 border-2 border-gray-200 rounded-lg">
-                    <div className="flex justify-between items-center mb-3">
+                  <div key={child.id} className="p-6 border-2 border-gray-200 rounded-lg">
+                    <div className="flex justify-between items-center mb-4">
                       <h3 className="font-medium text-gray-700">
                         Child #{index + 1}
                       </h3>
@@ -236,21 +245,30 @@ export default function FamilyRegistrationPage() {
                       )}
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Input
-                        label="Child's Name"
-                        type="text"
-                        value={child.name}
-                        onChange={(e) => handleChildChange(child.id, 'name', e.target.value)}
-                        placeholder="Emma Smith"
-                        required
-                      />
-                      <Input
-                        label="Date of Birth"
-                        type="date"
-                        value={child.dateOfBirth}
-                        onChange={(e) => handleChildChange(child.id, 'dateOfBirth', e.target.value)}
-                        required
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Input
+                          label="Child's Name"
+                          type="text"
+                          value={child.name}
+                          onChange={(e) => handleChildChange(child.id, 'name', e.target.value)}
+                          placeholder="Emma Smith"
+                          required
+                        />
+                        <Input
+                          label="Date of Birth"
+                          type="date"
+                          value={child.dateOfBirth}
+                          onChange={(e) => handleChildChange(child.id, 'dateOfBirth', e.target.value)}
+                          required
+                        />
+                      </div>
+
+                      {/* Photo Upload */}
+                      <ImageUpload
+                        currentImageUrl={child.photoUrl}
+                        onImageUpload={(url) => handlePhotoUpload(child.id, url)}
+                        childId={`temp_${child.id}`}
                       />
                     </div>
                   </div>

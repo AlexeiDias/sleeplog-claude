@@ -9,6 +9,7 @@ import Timer from './Timer';
 import SleepActionModal, { SleepActionData } from './SleepActionModal';
 import SleepLogTable from './SleepLogTable';
 import { generateEmailHTML } from '@/utils/reportGenerator';
+import Image from 'next/image';
 
 interface ChildCardProps {
   child: Child;
@@ -391,13 +392,31 @@ export default function ChildCard({ child }: ChildCardProps) {
   return (
     <>
       <div className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6">
-        {/* Child Info */}
-        <div className="flex items-start justify-between mb-4">
-          <div>
+        {/* Child Info with Photo */}
+        <div className="flex items-start gap-4 mb-4">
+          {/* Photo */}
+          <div className="flex-shrink-0">
+            {child.photoUrl ? (
+              <div className="relative w-20 h-20 rounded-full overflow-hidden border-4 border-blue-500">
+                <Image
+                  src={child.photoUrl}
+                  alt={child.name}
+                  fill
+                  className="object-cover"
+                />
+              </div>
+            ) : (
+              <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center text-3xl border-4 border-blue-500">
+                👶
+              </div>
+            )}
+          </div>
+
+          {/* Info */}
+          <div className="flex-1">
             <h3 className="text-xl font-semibold text-gray-800">{child.name}</h3>
             <p className="text-sm text-gray-500">{calculateAge(child.dateOfBirth)}</p>
           </div>
-          <div className="text-3xl">👶</div>
         </div>
 
         {/* Sleep Info */}
@@ -424,7 +443,7 @@ export default function ChildCard({ child }: ChildCardProps) {
           ) : (
             <>
               <Button variant="primary" className="w-full" onClick={handleCheck}>
-                🔁 Check
+                🔍 Check
               </Button>
               <Button variant="danger" className="w-full" onClick={handleStopSleep}>
                 ⛔ Stop
