@@ -82,7 +82,7 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-blue-100 py-12 px-4">
       <div className="max-w-md mx-auto">
-        <div className="bg-black rounded-lg shadow-lg p-8">
+        <div className="bg-white rounded-lg shadow-lg p-8">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-blue-900 mb-2">
               Set Your Initials ✍️
