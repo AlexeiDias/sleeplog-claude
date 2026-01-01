@@ -17,6 +17,7 @@ export interface SleepActionData {
   position: SleepPosition;
   breathing: BreathingCondition;
   mood?: Mood;
+  notes?: string; // ← ADDED
 }
 
 const positionOptions = [
@@ -48,6 +49,7 @@ export default function SleepActionModal({
   const [position, setPosition] = useState<string>('');
   const [breathing, setBreathing] = useState<string>('');
   const [mood, setMood] = useState<string>('');
+  const [notes, setNotes] = useState<string>(''); // ← ADDED
   const [error, setError] = useState('');
 
   const titles = {
@@ -79,12 +81,18 @@ export default function SleepActionModal({
       data.mood = mood as Mood;
     }
 
+    // Add notes if provided
+    if (notes.trim()) {
+      data.notes = notes.trim();
+    }
+
     onSubmit(data);
     
     // Reset form
     setPosition('');
     setBreathing('');
     setMood('');
+    setNotes(''); // ← ADDED
     setError('');
   }
 
@@ -92,6 +100,7 @@ export default function SleepActionModal({
     setPosition('');
     setBreathing('');
     setMood('');
+    setNotes(''); // ← ADDED
     setError('');
     onClose();
   }
@@ -130,6 +139,24 @@ export default function SleepActionModal({
             required
           />
         )}
+
+        {/* Notes Field - NEW */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Notes (Optional)
+          </label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Add any observations or comments..."
+            rows={3}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+            maxLength={500}
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            {notes.length}/500 characters
+          </p>
+        </div>
 
         <div className="flex gap-3 mt-6">
           <Button type="button" variant="secondary" onClick={handleClose} className="flex-1">

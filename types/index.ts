@@ -44,7 +44,7 @@ export interface Child {
   id: string;
   name: string;
   dateOfBirth: Date;
-  photoUrl?: string; // ← ADDED: Optional photo URL
+  photoUrl?: string;
   familyId: string;
   daycareId: string;
   createdAt: Date;
@@ -64,6 +64,7 @@ export interface SleepLogEntry {
   position: SleepPosition;
   breathing: BreathingCondition;
   mood?: Mood; // Only for 'stop' action
+  notes?: string; // ← ADDED: Optional notes for any action
   intervalSinceLast?: number; // Minutes since last entry
   staffInitials: string;
   staffId: string;

@@ -188,6 +188,11 @@ export default function ChildCard({ child }: ChildCardProps) {
         entry.mood = data.mood;
       }
 
+      // Only include notes if provided
+      if (data.notes) {
+        entry.notes = data.notes;
+      }
+
       // Save to Firestore
       const entryRef = doc(db, 'children', child.id, 'sleepLogs', todayDate, 'entries', entryId);
       await setDoc(entryRef, entry);

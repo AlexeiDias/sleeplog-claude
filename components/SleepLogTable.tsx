@@ -41,6 +41,7 @@ export default function SleepLogTable({ entries, sessionNumber }: SleepLogTableP
               <th className="px-3 py-2 text-left font-medium text-gray-700 border-b">Position</th>
               <th className="px-3 py-2 text-left font-medium text-gray-700 border-b">Breathing</th>
               <th className="px-3 py-2 text-left font-medium text-gray-700 border-b">Mood</th>
+              <th className="px-3 py-2 text-left font-medium text-gray-700 border-b">Notes</th>
               <th className="px-3 py-2 text-left font-medium text-gray-700 border-b">Interval</th>
               <th className="px-3 py-2 text-left font-medium text-gray-700 border-b">Staff</th>
             </tr>
@@ -67,6 +68,13 @@ export default function SleepLogTable({ entries, sessionNumber }: SleepLogTableP
                 <td className="px-3 py-2 border-b text-gray-800">{entry.position}</td>
                 <td className="px-3 py-2 border-b text-gray-800">{entry.breathing}</td>
                 <td className="px-3 py-2 border-b text-gray-800">{entry.mood || '-'}</td>
+                <td className="px-3 py-2 border-b text-gray-600 text-xs max-w-xs">
+                  {entry.notes ? (
+                    <span className="italic">{entry.notes}</span>
+                  ) : (
+                    <span className="text-gray-400">-</span>
+                  )}
+                </td>
                 <td className="px-3 py-2 border-b text-gray-800">
                   {formatInterval(entry.intervalSinceLast)}
                 </td>

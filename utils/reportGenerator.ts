@@ -133,6 +133,12 @@ export function generateEmailHTML(reportData: ReportData, daycareInfo: any): str
       background: #f8d7da;
       color: #721c24;
     }
+    .notes-cell {
+      font-style: italic;
+      color: #6c757d;
+      font-size: 9px;
+      max-width: 200px;
+    }
     .footer {
       margin-top: 15px;
       padding-top: 12px;
@@ -217,6 +223,7 @@ export function generateEmailHTML(reportData: ReportData, daycareInfo: any): str
           <th>Position</th>
           <th>Breathing</th>
           <th>Mood</th>
+          <th>Notes</th>
           <th>Interval</th>
           <th>Staff</th>
         </tr>
@@ -233,6 +240,7 @@ export function generateEmailHTML(reportData: ReportData, daycareInfo: any): str
           <td>${entry.position}</td>
           <td>${entry.breathing}</td>
           <td>${entry.mood || '-'}</td>
+          <td class="notes-cell">${entry.notes || '-'}</td>
           <td>${entry.intervalSinceLast ? entry.intervalSinceLast + ' min' : '-'}</td>
           <td><strong>${entry.staffInitials}</strong></td>
         </tr>
