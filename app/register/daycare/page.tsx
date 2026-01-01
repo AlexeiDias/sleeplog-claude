@@ -33,7 +33,7 @@ export default function DaycareRegistrationPage() {
 
     // Check if user already has a daycare
     async function checkDaycare() {
-      if (user.daycareId) {
+      if (user && user.daycareId) {
         // User already has a daycare, redirect to dashboard
         router.push('/dashboard');
       }
