@@ -61,10 +61,10 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-blue-100 px-4 py-8">
-      <div className="max-w-md w-full bg-black rounded-lg shadow-lg p-8">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-blue-300 mb-2">💤 SleepLog</h1>
-          <p className="text-gray-200">Create your admin account</p>
+          <p className="text-gray-600">Create your admin account</p>
         </div>
 
         {error && (
@@ -135,7 +135,7 @@ export default function SignupPage() {
         </form>
 
         <div className="mt-6 text-center text-sm">
-          <p className="text-gray-600">
+          <p className="text-gray-300">
             Already have an account?{' '}
             <Link href="/login" className="text-blue-600 hover:underline font-medium">
               Sign in
