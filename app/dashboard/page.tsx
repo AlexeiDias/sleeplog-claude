@@ -4,7 +4,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Button from '@/components/Button';
 import ChildCard from '@/components/ChildCard';
@@ -30,32 +30,32 @@ export default function DashboardPage() {
       return;
     }
 
-    // Fetch children
-    async function fetchChildren() {
-      if (!user?.daycareId) return;
+    // Listen to children in real-time
+    if (!user?.daycareId) return;
 
-      try {
-        const q = query(
-          collection(db, 'children'),
-          where('daycareId', '==', user.daycareId)
-        );
-        const snapshot = await getDocs(q);
-        const childrenData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          dateOfBirth: doc.data().dateOfBirth?.toDate() || new Date(),
-          createdAt: doc.data().createdAt?.toDate() || new Date(),
-        })) as Child[];
+    const q = query(
+      collection(db, 'children'),
+      where('daycareId', '==', user.daycareId)
+    );
 
-        setChildren(childrenData);
-      } catch (error) {
-        console.error('Error fetching children:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
+    // Set up real-time listener
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const childrenData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        dateOfBirth: doc.data().dateOfBirth?.toDate() || new Date(),
+        createdAt: doc.data().createdAt?.toDate() || new Date(),
+      })) as Child[];
 
-    fetchChildren();
+      setChildren(childrenData);
+      setLoading(false);
+    }, (error) => {
+      console.error('Error fetching children:', error);
+      setLoading(false);
+    });
+
+    // Cleanup listener on unmount
+    return () => unsubscribe();
   }, [user, router]);
 
   async function handleLogout() {

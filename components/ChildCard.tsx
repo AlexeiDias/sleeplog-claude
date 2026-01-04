@@ -8,6 +8,8 @@ import Button from './Button';
 import Timer from './Timer';
 import SleepActionModal, { SleepActionData } from './SleepActionModal';
 import SleepLogTable from './SleepLogTable';
+import EditChildModal from './EditChildModal';
+import EditFamilyModal from './EditFamilyModal';
 import { generateEmailHTML } from '@/utils/reportGenerator';
 import Image from 'next/image';
 
@@ -25,8 +27,32 @@ export default function ChildCard({ child }: ChildCardProps) {
   const [timerStartTime, setTimerStartTime] = useState<Date | null>(null);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
+  
+  // New state for edit modals
+  const [showEditChildModal, setShowEditChildModal] = useState(false);
+  const [showEditFamilyModal, setShowEditFamilyModal] = useState(false);
+  const [family, setFamily] = useState<Family | null>(null);
 
   const todayDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+  // Fetch family data
+  useEffect(() => {
+    async function fetchFamily() {
+      try {
+        const familyDoc = await getDoc(doc(db, 'families', child.familyId));
+        if (familyDoc.exists()) {
+          setFamily({
+            id: familyDoc.id,
+            ...familyDoc.data()
+          } as Family);
+        }
+      } catch (error) {
+        console.error('Error fetching family:', error);
+      }
+    }
+
+    fetchFamily();
+  }, [child.familyId]);
 
   useEffect(() => {
     if (!user?.initials) {
@@ -141,6 +167,20 @@ export default function ChildCard({ child }: ChildCardProps) {
     setCurrentAction('stop');
     setIsModalOpen(true);
   }
+
+  // Edit handlers
+  const handleEditChild = () => {
+    setShowEditChildModal(true);
+  };
+
+  const handleEditFamily = () => {
+    setShowEditFamilyModal(true);
+  };
+
+  const handleEditSuccess = () => {
+    // Firestore real-time listeners will auto-update the data
+    console.log('Edit successful - data will update automatically');
+  };
 
   async function handleModalSubmit(data: SleepActionData) {
     if (!user?.initials) {
@@ -397,7 +437,7 @@ export default function ChildCard({ child }: ChildCardProps) {
   return (
     <>
       <div className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6">
-        {/* Child Info with Photo */}
+        {/* Child Info with Photo and Edit Buttons */}
         <div className="flex items-start gap-4 mb-4">
           {/* Photo */}
           <div className="flex-shrink-0">
@@ -421,6 +461,31 @@ export default function ChildCard({ child }: ChildCardProps) {
           <div className="flex-1">
             <h3 className="text-xl font-semibold text-gray-800">{child.name}</h3>
             <p className="text-sm text-gray-500">{calculateAge(child.dateOfBirth)}</p>
+          </div>
+
+          {/* Edit Buttons */}
+          <div className="flex gap-2">
+            <button
+              onClick={handleEditChild}
+              className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              title="Edit child information"
+              aria-label="Edit child"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+              </svg>
+            </button>
+            
+            <button
+              onClick={handleEditFamily}
+              className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+              title="Edit family information"
+              aria-label="Edit family"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -507,6 +572,26 @@ export default function ChildCard({ child }: ChildCardProps) {
         action={currentAction}
         childName={child.name}
       />
+
+      {/* Edit Child Modal */}
+      {showEditChildModal && (
+        <EditChildModal
+          child={child}
+          isOpen={showEditChildModal}
+          onClose={() => setShowEditChildModal(false)}
+          onSuccess={handleEditSuccess}
+        />
+      )}
+
+      {/* Edit Family Modal */}
+      {showEditFamilyModal && family && (
+        <EditFamilyModal
+          family={family}
+          isOpen={showEditFamilyModal}
+          onClose={() => setShowEditFamilyModal(false)}
+          onSuccess={handleEditSuccess}
+        />
+      )}
     </>
   );
 }

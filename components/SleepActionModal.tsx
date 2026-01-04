@@ -17,7 +17,7 @@ export interface SleepActionData {
   position: SleepPosition;
   breathing: BreathingCondition;
   mood?: Mood;
-  notes?: string; // ← ADDED
+  notes?: string;
 }
 
 const positionOptions = [
@@ -49,7 +49,7 @@ export default function SleepActionModal({
   const [position, setPosition] = useState<string>('');
   const [breathing, setBreathing] = useState<string>('');
   const [mood, setMood] = useState<string>('');
-  const [notes, setNotes] = useState<string>(''); // ← ADDED
+  const [notes, setNotes] = useState<string>('');
   const [error, setError] = useState('');
 
   const titles = {
@@ -92,7 +92,7 @@ export default function SleepActionModal({
     setPosition('');
     setBreathing('');
     setMood('');
-    setNotes(''); // ← ADDED
+    setNotes('');
     setError('');
   }
 
@@ -100,7 +100,7 @@ export default function SleepActionModal({
     setPosition('');
     setBreathing('');
     setMood('');
-    setNotes(''); // ← ADDED
+    setNotes('');
     setError('');
     onClose();
   }
@@ -140,7 +140,7 @@ export default function SleepActionModal({
           />
         )}
 
-        {/* Notes Field - NEW */}
+        {/* Notes Field */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Notes (Optional)
@@ -150,7 +150,7 @@ export default function SleepActionModal({
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Add any observations or comments..."
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
             maxLength={500}
           />
           <p className="mt-1 text-xs text-gray-500">
