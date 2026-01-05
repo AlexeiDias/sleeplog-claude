@@ -21,6 +21,9 @@ export default function EditFamilyModal({ family, isOpen, onClose, onSuccess }: 
     motherEmail: family.motherEmail || '',
     fatherName: family.fatherName || '',
     fatherEmail: family.fatherEmail || '',
+    guardianName: family.guardianName || '',
+    guardianIdNumber: family.guardianIdNumber || '',
+    guardianPhone: family.guardianPhone || '',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -28,9 +31,9 @@ export default function EditFamilyModal({ family, isOpen, onClose, onSuccess }: 
     setLoading(true);
     setError('');
 
-    // Validate: at least one parent must have a name
-    if (!formData.motherName && !formData.fatherName) {
-      setError('At least one parent name is required');
+    // Validate: at least one parent OR guardian must have a name
+    if (!formData.motherName && !formData.fatherName && !formData.guardianName) {
+      setError('At least one parent or guardian name is required');
       setLoading(false);
       return;
     }
@@ -67,6 +70,9 @@ export default function EditFamilyModal({ family, isOpen, onClose, onSuccess }: 
         motherEmail: formData.motherEmail || null,
         fatherName: formData.fatherName || null,
         fatherEmail: formData.fatherEmail || null,
+        guardianName: formData.guardianName || null,
+        guardianIdNumber: formData.guardianIdNumber || null,
+        guardianPhone: formData.guardianPhone || null,
       });
 
       onSuccess();
@@ -134,13 +140,46 @@ export default function EditFamilyModal({ family, isOpen, onClose, onSuccess }: 
           />
         </div>
 
+        {/* Guardian Information */}
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-gray-700 border-b pb-2">Guardian Information (Optional)</h3>
+          
+          <Input
+            label="Guardian's Name"
+            type="text"
+            value={formData.guardianName}
+            onChange={(e) => setFormData({ ...formData, guardianName: e.target.value })}
+            placeholder="Enter guardian's name"
+            disabled={loading}
+          />
+
+          <Input
+            label="Guardian's ID Number"
+            type="text"
+            value={formData.guardianIdNumber}
+            onChange={(e) => setFormData({ ...formData, guardianIdNumber: e.target.value })}
+            placeholder="Driver's License or State ID"
+            disabled={loading}
+          />
+
+          <Input
+            label="Guardian's Phone"
+            type="tel"
+            value={formData.guardianPhone}
+            onChange={(e) => setFormData({ ...formData, guardianPhone: e.target.value })}
+            placeholder="(555) 123-4567"
+            disabled={loading}
+          />
+        </div>
+
         {/* Info Message */}
         <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded text-sm">
           <p className="font-medium">Note:</p>
           <ul className="list-disc list-inside mt-1 space-y-1">
-            <li>At least one parent name is required</li>
-            <li>Email reports will be sent to provided email addresses</li>
-            <li>You can leave email fields blank if not needed</li>
+            <li>At least one parent or guardian name is required</li>
+            <li>Email reports will be sent to parent email addresses</li>
+            <li>Guardian info is used for quick kiosk sign-in</li>
+            <li>ID number helps verify authorized guardians</li>
           </ul>
         </div>
 
