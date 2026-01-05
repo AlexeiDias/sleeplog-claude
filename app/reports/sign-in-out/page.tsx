@@ -17,20 +17,6 @@ export default function DashboardPage() {
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Helper function to calculate age in months
-  function getAgeInMonths(dateOfBirth: Date): number {
-    const today = new Date();
-    const birthDate = new Date(dateOfBirth);
-    const months = (today.getFullYear() - birthDate.getFullYear()) * 12 + 
-                   (today.getMonth() - birthDate.getMonth());
-    return months;
-  }
-
-  // Helper function to check if child needs sleep tracking (under 24 months)
-  function needsSleepTracking(child: Child): boolean {
-    return getAgeInMonths(child.dateOfBirth) < 24;
-  }
-
   useEffect(() => {
     // Redirect to login if not authenticated
     if (!user) {
@@ -196,7 +182,6 @@ export default function DashboardPage() {
         <div className="mb-6 flex justify-between items-center">
           <h2 className="text-3xl font-bold text-gray-800">
             Children Dashboard
-            <span className="text-lg text-gray-500 ml-3">(Under 2 Years Old)</span>
           </h2>
           {user.role === 'admin' && (
             <Button
@@ -208,63 +193,33 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Filter children under 2 years for sleep tracking */}
-        {(() => {
-          const childrenUnder2 = children.filter(needsSleepTracking);
-          const childrenOver2Count = children.length - childrenUnder2.length;
-
-          return (
-            <>
-              {/* Info banner about filtered children */}
-              {childrenOver2Count > 0 && (
-                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-start">
-                    <span className="text-2xl mr-3">ℹ️</span>
-                    <div>
-                      <h3 className="font-semibold text-blue-900">Sleep Tracking</h3>
-                      <p className="text-sm text-blue-800">
-                        Showing {childrenUnder2.length} children under 2 years old who require sleep tracking.
-                        {childrenOver2Count > 0 && (
-                          <> {childrenOver2Count} older {childrenOver2Count === 1 ? 'child' : 'children'} (2+ years) hidden from this view but still available for sign-in/out at the kiosk.</>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {childrenUnder2.length === 0 ? (
-                <div className="bg-white rounded-lg shadow p-12 text-center">
-                  <div className="text-6xl mb-4">👶</div>
-                  <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                    No Children Under 2 Years Old
-                  </h3>
-                  <p className="text-gray-600 mb-6">
-                    {children.length > 0 
-                      ? `All ${children.length} registered ${children.length === 1 ? 'child is' : 'children are'} 2 years or older and don't require sleep tracking.`
-                      : user.role === 'admin' 
-                        ? 'Add your first family to start tracking sleep sessions'
-                        : 'No children have been added to this daycare yet'}
-                  </p>
-                  {user.role === 'admin' && children.length === 0 && (
-                    <Button
-                      variant="primary"
-                      onClick={() => router.push('/register/family')}
-                    >
-                      Add First Family
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {childrenUnder2.map((child) => (
-                    <ChildCard key={child.id} child={child} />
-                  ))}
-                </div>
-              )}
-            </>
-          );
-        })()}
+        {children.length === 0 ? (
+          <div className="bg-white rounded-lg shadow p-12 text-center">
+            <div className="text-6xl mb-4">👶</div>
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">
+              No Children Registered Yet
+            </h3>
+            <p className="text-gray-600 mb-6">
+              {user.role === 'admin' 
+                ? 'Add your first family to start tracking sleep sessions'
+                : 'No children have been added to this daycare yet'}
+            </p>
+            {user.role === 'admin' && (
+              <Button
+                variant="primary"
+                onClick={() => router.push('/register/family')}
+              >
+                Add First Family
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {children.map((child) => (
+              <ChildCard key={child.id} child={child} />
+            ))}
+          </div>
+        )}
 
         {/* Quick Links Card - Admin Only */}
         {user.role === 'admin' && children.length > 0 && (

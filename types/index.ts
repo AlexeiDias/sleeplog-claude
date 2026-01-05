@@ -36,6 +36,9 @@ export interface Family {
   motherEmail?: string;
   fatherName?: string;
   fatherEmail?: string;
+  guardianName?: string;
+  guardianIdNumber?: string;
+  guardianPhone?: string;
   createdAt: Date;
 }
 
@@ -64,7 +67,7 @@ export interface SleepLogEntry {
   position: SleepPosition;
   breathing: BreathingCondition;
   mood?: Mood; // Only for 'stop' action
-  notes?: string; // ← ADDED: Optional notes for any action
+  notes?: string; // Optional notes for any action
   intervalSinceLast?: number; // Minutes since last entry
   staffInitials: string;
   staffId: string;
@@ -80,4 +83,23 @@ export interface SleepSession {
   entries: SleepLogEntry[];
   totalDuration?: number; // Minutes
   isActive: boolean;
+}
+
+// Sign-In/Out Types
+export type SignInOutType = 'sign-in' | 'sign-out';
+export type ParentRelationship = 'Mother' | 'Father' | 'Guardian' | 'Authorized Person';
+
+export interface SignInOutRecord {
+  id: string;
+  childId: string;
+  childName: string;
+  daycareId: string;
+  type: SignInOutType;
+  timestamp: Date;
+  parentFullName: string;
+  relationship: ParentRelationship;
+  signature?: string; // base64 signature image
+  idNumber?: string; // ID number for non-registered guardians
+  notes?: string;
+  createdAt: Date;
 }
