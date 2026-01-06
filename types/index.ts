@@ -1,3 +1,4 @@
+//types/index.ts
 // User Roles
 export type UserRole = 'admin' | 'staff';
 

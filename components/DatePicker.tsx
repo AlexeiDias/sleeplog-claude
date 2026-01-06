@@ -7,19 +7,34 @@ interface DatePickerProps {
   label?: string;
 }
 
+// Helper function to get local date string (YYYY-MM-DD)
+function getLocalDateString(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// Helper function to parse date string and create local date
+function parseLocalDate(dateString: string): Date {
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
 export default function DatePicker({ selectedDate, onDateChange, label = 'Select Date' }: DatePickerProps) {
-  const today = new Date().toISOString().split('T')[0];
+  // FIXED: Use local timezone instead of UTC
+  const today = getLocalDateString();
 
   function handlePreviousDay() {
-    const date = new Date(selectedDate);
+    const date = parseLocalDate(selectedDate);
     date.setDate(date.getDate() - 1);
-    onDateChange(date.toISOString().split('T')[0]);
+    onDateChange(getLocalDateString(date));
   }
 
   function handleNextDay() {
-    const date = new Date(selectedDate);
+    const date = parseLocalDate(selectedDate);
     date.setDate(date.getDate() + 1);
-    const nextDay = date.toISOString().split('T')[0];
+    const nextDay = getLocalDateString(date);
     
     // Don't allow future dates
     if (nextDay <= today) {
@@ -77,7 +92,7 @@ export default function DatePicker({ selectedDate, onDateChange, label = 'Select
       </div>
 
       <span className="text-sm text-gray-600">
-        {new Date(selectedDate).toLocaleDateString('en-US', {
+        {parseLocalDate(selectedDate).toLocaleDateString('en-US', {
           weekday: 'long',
           year: 'numeric',
           month: 'long',

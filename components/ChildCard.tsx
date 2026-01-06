@@ -33,7 +33,12 @@ export default function ChildCard({ child }: ChildCardProps) {
   const [showEditFamilyModal, setShowEditFamilyModal] = useState(false);
   const [family, setFamily] = useState<Family | null>(null);
 
-  const todayDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  // FIXED: Use local date instead of UTC to prevent timezone issues
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const todayDate = `${year}-${month}-${day}`; // YYYY-MM-DD in local timezone
 
   // Fetch family data
   useEffect(() => {
@@ -299,7 +304,6 @@ export default function ChildCard({ child }: ChildCardProps) {
         throw new Error('Missing family or daycare information');
       }
 
-      // Get parent email
       const parentEmail = familyData.motherEmail || familyData.fatherEmail;
       if (!parentEmail) {
         alert('No parent email found for this child');
@@ -341,7 +345,7 @@ export default function ChildCard({ child }: ChildCardProps) {
         body: JSON.stringify({
           to: parentEmail,
           cc: daycareData.email,
-          subject: `Sleep Report for ${child.name} - ${new Date().toLocaleDateString()}`,
+          subject: `Sleep Report for ${child.name} - ${new Date(todayDate).toLocaleDateString()}`,
           htmlContent,
         }),
       });

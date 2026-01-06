@@ -7,6 +7,8 @@ import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/fire
 import { db } from '@/lib/firebase';
 import Button from '@/components/Button';
 import { useRouter } from 'next/navigation';
+import EditChildModal from '@/components/EditChildModal';
+import EditFamilyModal from '@/components/EditFamilyModal';
 import { Family, Child } from '@/types';
 
 interface FamilyWithChildren {
@@ -20,6 +22,10 @@ export default function FamiliesSettingsPage() {
   const [families, setFamilies] = useState<FamilyWithChildren[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Modal states
+  const [editingChild, setEditingChild] = useState<Child | null>(null);
+  const [editingFamily, setEditingFamily] = useState<Family | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -118,6 +124,15 @@ export default function FamiliesSettingsPage() {
     }
   }
 
+  // Calculate child's age in months
+  function getAgeInMonths(dateOfBirth: Date): number {
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    const months = (today.getFullYear() - birthDate.getFullYear()) * 12 + 
+                   (today.getMonth() - birthDate.getMonth());
+    return months;
+  }
+
   if (loading) {
     return (
       <div className="bg-white rounded-lg shadow p-12 text-center">
@@ -162,7 +177,7 @@ export default function FamiliesSettingsPage() {
                 <div key={family.id} className="border rounded-lg p-4">
                   {/* Family Header */}
                   <div className="flex justify-between items-start mb-4">
-                    <div>
+                    <div className="flex-1">
                       <h3 className="text-lg font-semibold text-gray-800">{familyName}</h3>
                       <div className="text-sm text-gray-600 mt-1">
                         {family.motherName && (
@@ -171,15 +186,27 @@ export default function FamiliesSettingsPage() {
                         {family.fatherName && (
                           <div>Father: {family.fatherName} {family.fatherEmail && `(${family.fatherEmail})`}</div>
                         )}
+                        {family.guardianName && (
+                          <div>Guardian: {family.guardianName} {family.guardianPhone && `(${family.guardianPhone})`}</div>
+                        )}
                       </div>
                     </div>
-                    <Button
-                      variant="danger"
-                      onClick={() => handleDeleteFamily(family.id, familyName, children.length)}
-                      className="text-sm"
-                    >
-                      Delete Family
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="secondary"
+                        onClick={() => setEditingFamily(family)}
+                        className="text-sm"
+                      >
+                        Edit Family
+                      </Button>
+                      <Button
+                        variant="danger"
+                        onClick={() => handleDeleteFamily(family.id, familyName, children.length)}
+                        className="text-sm"
+                      >
+                        Delete Family
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Children List */}
@@ -189,26 +216,57 @@ export default function FamiliesSettingsPage() {
                       <p className="text-sm text-gray-500 italic">No children in this family</p>
                     ) : (
                       <div className="space-y-2">
-                        {children.map((child) => (
-                          <div
-                            key={child.id}
-                            className="flex justify-between items-center bg-gray-50 p-3 rounded"
-                          >
-                            <div>
-                              <p className="font-medium text-gray-800">{child.name}</p>
-                              <p className="text-sm text-gray-600">
-                                DOB: {new Date(child.dateOfBirth).toLocaleDateString()}
-                              </p>
-                            </div>
-                            <Button
-                              variant="danger"
-                              onClick={() => handleDeleteChild(child.id, child.name)}
-                              className="text-sm"
+                        {children.map((child) => {
+                          const ageInMonths = getAgeInMonths(child.dateOfBirth);
+                          const isUnderTwo = ageInMonths < 24;
+                          
+                          return (
+                            <div
+                              key={child.id}
+                              className="flex justify-between items-center bg-gray-50 p-3 rounded"
                             >
-                              Delete
-                            </Button>
-                          </div>
-                        ))}
+                              <div className="flex items-center gap-3">
+                                {child.photoUrl && (
+                                  <img 
+                                    src={child.photoUrl} 
+                                    alt={child.name}
+                                    className="w-12 h-12 rounded-full object-cover"
+                                  />
+                                )}
+                                <div>
+                                  <p className="font-medium text-gray-800">{child.name}</p>
+                                  <p className="text-sm text-gray-600">
+                                    DOB: {new Date(child.dateOfBirth).toLocaleDateString()}
+                                    <span className="ml-2 text-xs">
+                                      ({ageInMonths} months old)
+                                      {!isUnderTwo && (
+                                        <span className="ml-1 text-blue-600 font-medium">
+                                          • Over 2 years
+                                        </span>
+                                      )}
+                                    </span>
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="secondary"
+                                  onClick={() => setEditingChild(child)}
+                                  className="text-sm"
+                                >
+                                  Edit
+                                </Button>
+                                <Button
+                                  variant="danger"
+                                  onClick={() => handleDeleteChild(child.id, child.name)}
+                                  className="text-sm"
+                                >
+                                  Delete
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -222,10 +280,36 @@ export default function FamiliesSettingsPage() {
       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm">
         <strong className="text-yellow-900">⚠️ Warning:</strong>
         <p className="text-yellow-800 mt-1">
-          Deleting children will permanently remove all their sleep logs. This action cannot be undone.
-          Families can only be deleted after all their children have been removed.
+          Deleting children will permanently remove all their sleep logs and sign-in/out records. 
+          This action cannot be undone. Families can only be deleted after all their children have been removed.
         </p>
       </div>
+
+      {/* Edit Child Modal */}
+      {editingChild && (
+        <EditChildModal
+          child={editingChild}
+          isOpen={!!editingChild}
+          onClose={() => setEditingChild(null)}
+          onSuccess={() => {
+            setEditingChild(null);
+            fetchFamilies(); // Refresh the list
+          }}
+        />
+      )}
+
+      {/* Edit Family Modal */}
+      {editingFamily && (
+        <EditFamilyModal
+          family={editingFamily}
+          isOpen={!!editingFamily}
+          onClose={() => setEditingFamily(null)}
+          onSuccess={() => {
+            setEditingFamily(null);
+            fetchFamilies(); // Refresh the list
+          }}
+        />
+      )}
     </div>
   );
 }

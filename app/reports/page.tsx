@@ -12,12 +12,21 @@ import HistoricalChildCard from '@/components/HistoricalChildCard';
 import { Child } from '@/types';
 import Link from 'next/link';
 
+// Helper function to get local date string (YYYY-MM-DD)
+function getLocalDateString(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export default function ReportsPage() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  // FIXED: Use local date instead of UTC
+  const [selectedDate, setSelectedDate] = useState(getLocalDateString());
 
   useEffect(() => {
     if (!user) {
@@ -73,7 +82,8 @@ export default function ReportsPage() {
     );
   }
 
-  const isToday = selectedDate === new Date().toISOString().split('T')[0];
+  // FIXED: Compare with local date instead of UTC
+  const isToday = selectedDate === getLocalDateString();
 
   return (
     <div className="min-h-screen bg-gray-50">
