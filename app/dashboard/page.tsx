@@ -8,6 +8,7 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Button from '@/components/Button';
 import ChildCard from '@/components/ChildCard';
+import NotificationPermission from '@/components/NotificationPermission';
 import { Child } from '@/types';
 import Link from 'next/link';
 
@@ -193,6 +194,9 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {/* NEW: Notification Permission Banner */}
+        <NotificationPermission />
+
         <div className="mb-6 flex justify-between items-center">
           <h2 className="text-3xl font-bold text-gray-800">
             Children Dashboard
@@ -375,6 +379,7 @@ export default function DashboardPage() {
               <li>✅ Full compliance documentation</li>
               <li>✅ Edit families & children</li>
               <li>✅ Electronic sign-in/out with signatures</li>
+              <li>✅ Mobile alerts with vibration & notifications</li>
             </ul>
             <p className="mt-4 text-sm text-green-700">
               <strong>🎉 Your SleepLog app is fully functional!</strong>
