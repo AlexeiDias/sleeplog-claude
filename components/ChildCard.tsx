@@ -372,7 +372,7 @@ export default function ChildCard({ child }: ChildCardProps) {
     }
   }
 
-  // UPDATED: Mobile-friendly print function
+  // UPDATED: Mobile-friendly print using iframe (no popups)
   async function handlePrint() {
     if (todayEntries.length === 0) {
       alert('No sleep logs to print');
@@ -417,31 +417,46 @@ export default function ChildCard({ child }: ChildCardProps) {
         daycareData
       );
 
-      // For mobile: Open in new tab and trigger print
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(htmlContent);
-        printWindow.document.close();
-        
-        // On mobile, add a visible print button at the top
-        if (isMobileDevice()) {
-          const printButton = printWindow.document.createElement('div');
-          printButton.innerHTML = `
-            <div style="position: fixed; top: 0; left: 0; right: 0; background: #667eea; color: white; padding: 15px; text-align: center; z-index: 10000; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
-              <p style="margin: 0 0 10px 0; font-weight: bold; font-size: 16px;">📱 Tap button to print</p>
-              <button onclick="window.print()" style="background: white; color: #667eea; border: none; padding: 12px 30px; border-radius: 8px; font-weight: bold; font-size: 18px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.2); -webkit-tap-highlight-color: transparent;">
-                🖨️ Print Report
-              </button>
-            </div>
-          `;
-          printWindow.document.body.insertBefore(printButton, printWindow.document.body.firstChild);
-          
-          // Add padding to body so content isn't hidden under button
-          const style = printWindow.document.createElement('style');
-          style.textContent = 'body { padding-top: 100px !important; } @media print { body { padding-top: 0 !important; } }';
-          printWindow.document.head.appendChild(style);
-        } else {
-          // Desktop: Auto-trigger print dialog
+      if (isMobileDevice()) {
+        // Mobile: Use hidden iframe to bypass popup blockers
+        const printFrame = document.createElement('iframe');
+        printFrame.style.position = 'fixed';
+        printFrame.style.right = '0';
+        printFrame.style.bottom = '0';
+        printFrame.style.width = '0';
+        printFrame.style.height = '0';
+        printFrame.style.border = '0';
+        document.body.appendChild(printFrame);
+
+        const frameDoc = printFrame.contentWindow?.document;
+        if (frameDoc) {
+          frameDoc.open();
+          frameDoc.write(htmlContent);
+          frameDoc.close();
+
+          // Wait for content to load, then trigger print
+          setTimeout(() => {
+            try {
+              printFrame.contentWindow?.focus();
+              printFrame.contentWindow?.print();
+              
+              // Clean up after print dialog closes (or user cancels)
+              setTimeout(() => {
+                document.body.removeChild(printFrame);
+              }, 1000);
+            } catch (err) {
+              console.error('Print error:', err);
+              document.body.removeChild(printFrame);
+              alert('Unable to print. Please use the Email button to send the report, or try printing from a desktop browser.');
+            }
+          }, 500);
+        }
+      } else {
+        // Desktop: Use traditional print dialog
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+          printWindow.document.write(htmlContent);
+          printWindow.document.close();
           printWindow.focus();
           setTimeout(() => {
             printWindow.print();
