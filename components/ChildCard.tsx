@@ -162,7 +162,7 @@ export default function ChildCard({ child }: ChildCardProps) {
   function isMobileDevice(): boolean {
     if (typeof window === 'undefined') return false;
     return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || 
-           (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
+           (navigator.maxTouchPoints > 2);
   }
 
   // NEW: Mobile print helper
