@@ -158,6 +158,34 @@ export default function ChildCard({ child }: ChildCardProps) {
     }
   }
 
+  // NEW: Mobile device detection
+  function isMobileDevice(): boolean {
+    if (typeof window === 'undefined') return false;
+    return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || 
+           (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
+  }
+
+  // NEW: Mobile print helper
+  function openPrintableTab(htmlContent: string) {
+    // Add mobile-specific instructions to the HTML
+    const mobileHtml = htmlContent.replace(
+      '</body>',
+      `
+      <div style="position: fixed; bottom: 0; left: 0; right: 0; background: #667eea; color: white; padding: 15px; text-align: center; font-size: 14px; box-shadow: 0 -2px 10px rgba(0,0,0,0.2); z-index: 1000;">
+        <p style="margin: 0 0 8px 0; font-weight: bold;">📱 Mobile Print Instructions:</p>
+        <p style="margin: 0; font-size: 12px;">Tap the Share button <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' viewBox='0 0 16 16'%3E%3Cpath d='M11 2.5a2.5 2.5 0 1 1 .603 1.628l-6.718 3.12a2.499 2.499 0 0 1 0 1.504l6.718 3.12a2.5 2.5 0 1 1-.488.876l-6.718-3.12a2.5 2.5 0 1 1 0-3.256l6.718-3.12A2.5 2.5 0 0 1 11 2.5z'/%3E%3C/svg%3E" style="vertical-align: middle; margin: 0 4px;"> in Safari, then select "Print"</p>
+      </div>
+      </body>
+      `
+    );
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(mobileHtml);
+      printWindow.document.close();
+    }
+  }
+
   function handleStartSleep() {
     setCurrentAction('start');
     setIsModalOpen(true);
@@ -365,6 +393,7 @@ export default function ChildCard({ child }: ChildCardProps) {
     }
   }
 
+  // UPDATED: Mobile-friendly print function
   async function handlePrint() {
     if (todayEntries.length === 0) {
       alert('No sleep logs to print');
@@ -409,15 +438,46 @@ export default function ChildCard({ child }: ChildCardProps) {
         daycareData
       );
 
-      // Open print window
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(htmlContent);
-        printWindow.document.close();
-        printWindow.focus();
-        setTimeout(() => {
-          printWindow.print();
-        }, 500);
+      // Mobile-friendly approach
+      if (isMobileDevice()) {
+        // Create HTML blob
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        
+        // Try native share API first (works on iOS/Android)
+        if (navigator.share) {
+          try {
+            // Create a file from the blob
+            const file = new File([blob], `sleep-report-${child.name}-${todayDate}.html`, { 
+              type: 'text/html' 
+            });
+            
+            await navigator.share({
+              title: `Sleep Report - ${child.name}`,
+              text: `Sleep report for ${child.name} on ${new Date(todayDate).toLocaleDateString()}`,
+              files: [file]
+            });
+          } catch (shareError: any) {
+            // User cancelled share or share failed, offer download instead
+            if (shareError.name !== 'AbortError') {
+              // Fallback: Open in new tab with instructions
+              openPrintableTab(htmlContent);
+            }
+          }
+        } else {
+          // Fallback for devices without share API
+          openPrintableTab(htmlContent);
+        }
+      } else {
+        // Desktop: Use traditional print dialog
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+          printWindow.document.write(htmlContent);
+          printWindow.document.close();
+          printWindow.focus();
+          setTimeout(() => {
+            printWindow.print();
+          }, 500);
+        }
       }
     } catch (error: any) {
       console.error('Error printing:', error);
