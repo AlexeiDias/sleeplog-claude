@@ -372,7 +372,7 @@ export default function ChildCard({ child }: ChildCardProps) {
     }
   }
 
-  // UPDATED: Mobile-friendly print using iframe (no popups)
+  // UPDATED: Mobile-friendly print with manual button (no auto-trigger)
   async function handlePrint() {
     if (todayEntries.length === 0) {
       alert('No sleep logs to print');
@@ -418,39 +418,95 @@ export default function ChildCard({ child }: ChildCardProps) {
       );
 
       if (isMobileDevice()) {
-        // Mobile: Use hidden iframe to bypass popup blockers
+        // Mobile: Create visible iframe with print button
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        overlay.style.zIndex = '9999';
+        overlay.style.display = 'flex';
+        overlay.style.flexDirection = 'column';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        
+        const container = document.createElement('div');
+        container.style.width = '95%';
+        container.style.maxWidth = '800px';
+        container.style.height = '90%';
+        container.style.backgroundColor = 'white';
+        container.style.borderRadius = '12px';
+        container.style.display = 'flex';
+        container.style.flexDirection = 'column';
+        container.style.overflow = 'hidden';
+        
+        const header = document.createElement('div');
+        header.style.padding = '15px';
+        header.style.backgroundColor = '#667eea';
+        header.style.color = 'white';
+        header.style.display = 'flex';
+        header.style.justifyContent = 'space-between';
+        header.style.alignItems = 'center';
+        header.innerHTML = `
+          <span style="font-weight: bold; font-size: 16px;">📄 Sleep Report Preview</span>
+          <button id="closePreview" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 12px; border-radius: 6px; font-size: 14px;">✕ Close</button>
+        `;
+        
         const printFrame = document.createElement('iframe');
-        printFrame.style.position = 'fixed';
-        printFrame.style.right = '0';
-        printFrame.style.bottom = '0';
-        printFrame.style.width = '0';
-        printFrame.style.height = '0';
-        printFrame.style.border = '0';
-        document.body.appendChild(printFrame);
-
+        printFrame.style.flex = '1';
+        printFrame.style.border = 'none';
+        printFrame.style.width = '100%';
+        
+        const footer = document.createElement('div');
+        footer.style.padding = '15px';
+        footer.style.backgroundColor = '#f8f9fa';
+        footer.style.display = 'flex';
+        footer.style.gap = '10px';
+        footer.style.justifyContent = 'center';
+        footer.innerHTML = `
+          <button id="printButton" style="background: #667eea; color: white; border: none; padding: 12px 30px; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+            🖨️ Print Report
+          </button>
+        `;
+        
+        container.appendChild(header);
+        container.appendChild(printFrame);
+        container.appendChild(footer);
+        overlay.appendChild(container);
+        document.body.appendChild(overlay);
+        
+        // Load content into iframe
         const frameDoc = printFrame.contentWindow?.document;
         if (frameDoc) {
           frameDoc.open();
           frameDoc.write(htmlContent);
           frameDoc.close();
-
-          // Wait for content to load, then trigger print
-          setTimeout(() => {
-            try {
-              printFrame.contentWindow?.focus();
-              printFrame.contentWindow?.print();
-              
-              // Clean up after print dialog closes (or user cancels)
-              setTimeout(() => {
-                document.body.removeChild(printFrame);
-              }, 1000);
-            } catch (err) {
-              console.error('Print error:', err);
-              document.body.removeChild(printFrame);
-              alert('Unable to print. Please use the Email button to send the report, or try printing from a desktop browser.');
-            }
-          }, 500);
         }
+        
+        // Close button handler
+        const closeBtn = header.querySelector('#closePreview');
+        closeBtn?.addEventListener('click', () => {
+          document.body.removeChild(overlay);
+          setIsPrinting(false);
+        });
+        
+        // Print button handler
+        const printBtn = footer.querySelector('#printButton');
+        printBtn?.addEventListener('click', () => {
+          try {
+            printFrame.contentWindow?.focus();
+            printFrame.contentWindow?.print();
+          } catch (err) {
+            console.error('Print error:', err);
+            alert('Print failed. Please try using the Email button instead.');
+          }
+        });
+        
+        // Reset loading state
+        setIsPrinting(false);
+        
       } else {
         // Desktop: Use traditional print dialog
         const printWindow = window.open('', '_blank');
@@ -462,11 +518,11 @@ export default function ChildCard({ child }: ChildCardProps) {
             printWindow.print();
           }, 500);
         }
+        setIsPrinting(false);
       }
     } catch (error: any) {
       console.error('Error printing:', error);
       alert('Failed to generate print report: ' + error.message);
-    } finally {
       setIsPrinting(false);
     }
   }
