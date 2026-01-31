@@ -52,6 +52,8 @@ export interface Child {
   familyId: string;
   daycareId: string;
   createdAt: Date;
+  // Care log settings (optional - stored in separate document but referenced here)
+  careLogSettings?: CareLogSettings;
 }
 
 // Sleep Log Entry Types
@@ -103,4 +105,73 @@ export interface SignInOutRecord {
   idNumber?: string; // ID number for non-registered guardians
   notes?: string;
   createdAt: Date;
+}
+
+// ============================================
+// CARE LOG TYPES (NEW)
+// ============================================
+
+// Care Log Type Options
+export type CareLogType = 'diaper' | 'meal' | 'bottle';
+export type DiaperType = 'wet' | 'solid' | 'both';
+
+// Care Log Settings (per child)
+export interface CareLogSettings {
+  enabled: boolean;
+  trackDiapers: boolean;
+  trackMeals: boolean;
+  trackBottles: boolean;
+  pottyTrained: boolean; // If true, hide diaper tracking
+  noBottles: boolean; // If true, hide bottle tracking
+}
+
+// Base Care Log Entry
+export interface BaseCareLogEntry {
+  id: string;
+  childId: string;
+  type: CareLogType;
+  timestamp: Date;
+  staffInitials: string;
+  staffId: string;
+  createdAt: Date;
+  lastEditedAt?: Date;
+  lastEditedBy?: string; // Staff ID
+  lastEditedByInitials?: string; // Staff initials
+}
+
+// Diaper Change Entry
+export interface DiaperEntry extends BaseCareLogEntry {
+  type: 'diaper';
+  diaperType: DiaperType;
+  comments?: string;
+}
+
+// Meal Entry
+export interface MealEntry extends BaseCareLogEntry {
+  type: 'meal';
+  amount?: number; // Optional weight in oz
+  ingredients: string; // Required
+  comments?: string;
+}
+
+// Bottle Entry
+export interface BottleEntry extends BaseCareLogEntry {
+  type: 'bottle';
+  amount: number; // Required (in oz)
+  comments?: string;
+}
+
+// Union type for all care log entries
+export type CareLogEntry = DiaperEntry | MealEntry | BottleEntry;
+
+// Care Log Summary (for daily reports)
+export interface CareLogSummary {
+  date: string; // YYYY-MM-DD
+  childId: string;
+  totalDiapers: number;
+  totalMeals: number;
+  totalBottles: number;
+  totalBottleOz: number;
+  totalMealOz: number;
+  entries: CareLogEntry[];
 }

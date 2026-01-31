@@ -10,6 +10,7 @@ import SleepActionModal, { SleepActionData } from './SleepActionModal';
 import SleepLogTable from './SleepLogTable';
 import EditChildModal from './EditChildModal';
 import EditFamilyModal from './EditFamilyModal';
+import CareTab from './CareTab';
 import { generateEmailHTML } from '@/utils/reportGenerator';
 import Image from 'next/image';
 
@@ -17,8 +18,11 @@ interface ChildCardProps {
   child: Child;
 }
 
+type TabType = 'sleep' | 'care';
+
 export default function ChildCard({ child }: ChildCardProps) {
   const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<TabType>('sleep');
   const [activeSession, setActiveSession] = useState<SleepSession | null>(null);
   const [todayEntries, setTodayEntries] = useState<SleepLogEntry[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -32,6 +36,9 @@ export default function ChildCard({ child }: ChildCardProps) {
   const [showEditChildModal, setShowEditChildModal] = useState(false);
   const [showEditFamilyModal, setShowEditFamilyModal] = useState(false);
   const [family, setFamily] = useState<Family | null>(null);
+  
+  // Care log settings state
+  const [careLogSettings, setCareLogSettings] = useState<any>(null);
 
   // FIXED: Use local date instead of UTC to prevent timezone issues
   const now = new Date();
@@ -39,6 +46,17 @@ export default function ChildCard({ child }: ChildCardProps) {
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
   const todayDate = `${year}-${month}-${day}`; // YYYY-MM-DD in local timezone
+
+  // Check if child needs sleep tracking (under 24 months)
+  const needsSleepTracking = () => {
+    const birthDate = new Date(child.dateOfBirth);
+    const ageInMonths = (now.getFullYear() - birthDate.getFullYear()) * 12 + 
+                       (now.getMonth() - birthDate.getMonth());
+    return ageInMonths < 24;
+  };
+
+  const showSleepTab = needsSleepTracking();
+  const showCareTab = careLogSettings?.enabled || false;
 
   // Fetch family data
   useEffect(() => {
@@ -59,9 +77,53 @@ export default function ChildCard({ child }: ChildCardProps) {
     fetchFamily();
   }, [child.familyId]);
 
+  // Fetch care log settings
+  useEffect(() => {
+    async function fetchCareLogSettings() {
+      try {
+        const settingsDoc = await getDoc(doc(db, 'children', child.id, 'settings', 'careLogs'));
+        if (settingsDoc.exists()) {
+          setCareLogSettings(settingsDoc.data());
+        } else {
+          // Set smart defaults if no settings exist
+          const birthDate = new Date(child.dateOfBirth);
+          const ageInMonths = (now.getFullYear() - birthDate.getFullYear()) * 12 + 
+                             (now.getMonth() - birthDate.getMonth());
+          
+          const defaults = {
+            enabled: true,
+            trackDiapers: ageInMonths < 36, // Under 3 years
+            trackMeals: true, // All ages
+            trackBottles: ageInMonths < 18, // Under 18 months
+            pottyTrained: false,
+            noBottles: false,
+          };
+          
+          setCareLogSettings(defaults);
+          
+          // Save defaults to Firestore for future use
+          const settingsRef = doc(db, 'children', child.id, 'settings', 'careLogs');
+          await setDoc(settingsRef, defaults);
+        }
+      } catch (error) {
+        console.error('Error fetching care log settings:', error);
+        // Fallback defaults on error
+        setCareLogSettings({
+          enabled: true,
+          trackDiapers: true,
+          trackMeals: true,
+          trackBottles: true,
+          pottyTrained: false,
+          noBottles: false,
+        });
+      }
+    }
+
+    fetchCareLogSettings();
+  }, [child.id]);
+
   useEffect(() => {
     if (!user?.initials) {
-      // User needs to set initials - we'll handle this in the next step
       return;
     }
 
@@ -158,7 +220,7 @@ export default function ChildCard({ child }: ChildCardProps) {
     }
   }
 
-  // NEW: Mobile device detection
+  // Mobile device detection
   function isMobileDevice(): boolean {
     if (typeof window === 'undefined') return false;
     return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || 
@@ -190,7 +252,6 @@ export default function ChildCard({ child }: ChildCardProps) {
   };
 
   const handleEditSuccess = () => {
-    // Firestore real-time listeners will auto-update the data
     console.log('Edit successful - data will update automatically');
   };
 
@@ -230,26 +291,21 @@ export default function ChildCard({ child }: ChildCardProps) {
         sessionId,
       };
 
-      // Only include intervalSinceLast if it exists
       if (intervalSinceLast !== undefined) {
         entry.intervalSinceLast = intervalSinceLast;
       }
 
-      // Only include mood if it exists (stop action only)
       if (data.mood) {
         entry.mood = data.mood;
       }
 
-      // Only include notes if provided
       if (data.notes) {
         entry.notes = data.notes;
       }
 
-      // Save to Firestore
       const entryRef = doc(db, 'children', child.id, 'sleepLogs', todayDate, 'entries', entryId);
       await setDoc(entryRef, entry);
 
-      // Reset timer start time if check action
       if (currentAction === 'check') {
         setTimerStartTime(now);
       }
@@ -261,7 +317,6 @@ export default function ChildCard({ child }: ChildCardProps) {
     }
   }
 
-  // Group entries by session
   function groupEntriesBySessions(entries: SleepLogEntry[]): SleepLogEntry[][] {
     const sessions: SleepLogEntry[][] = [];
     let currentSession: SleepLogEntry[] = [];
@@ -299,11 +354,9 @@ export default function ChildCard({ child }: ChildCardProps) {
     setIsSendingEmail(true);
 
     try {
-      // Fetch family info
       const familyDoc = await getDoc(doc(db, 'families', child.familyId));
       const familyData = familyDoc.data();
 
-      // Fetch daycare info
       const daycareDoc = await getDoc(doc(db, 'daycares', child.daycareId));
       const daycareData = daycareDoc.data();
 
@@ -318,10 +371,8 @@ export default function ChildCard({ child }: ChildCardProps) {
         return;
       }
 
-      // Get unique staff IDs from entries
       const staffIds = [...new Set(todayEntries.map(entry => entry.staffId))];
       
-      // Fetch staff information
       const staffMembers = await Promise.all(
         staffIds.map(async (staffId) => {
           const staffDoc = await getDoc(doc(db, 'users', staffId));
@@ -333,7 +384,6 @@ export default function ChildCard({ child }: ChildCardProps) {
         })
       );
 
-      // Generate report HTML
       const htmlContent = generateEmailHTML(
         {
           child,
@@ -345,7 +395,6 @@ export default function ChildCard({ child }: ChildCardProps) {
         daycareData
       );
 
-      // Send email
       const response = await fetch('/api/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -372,7 +421,6 @@ export default function ChildCard({ child }: ChildCardProps) {
     }
   }
 
-  // UPDATED: Mobile-friendly print with manual button (no auto-trigger)
   async function handlePrint() {
     if (todayEntries.length === 0) {
       alert('No sleep logs to print');
@@ -382,7 +430,6 @@ export default function ChildCard({ child }: ChildCardProps) {
     setIsPrinting(true);
 
     try {
-      // Fetch daycare info
       const daycareDoc = await getDoc(doc(db, 'daycares', child.daycareId));
       const daycareData = daycareDoc.data();
 
@@ -390,10 +437,8 @@ export default function ChildCard({ child }: ChildCardProps) {
         throw new Error('Missing daycare information');
       }
 
-      // Get unique staff IDs from entries
       const staffIds = [...new Set(todayEntries.map(entry => entry.staffId))];
       
-      // Fetch staff information
       const staffMembers = await Promise.all(
         staffIds.map(async (staffId) => {
           const staffDoc = await getDoc(doc(db, 'users', staffId));
@@ -405,7 +450,6 @@ export default function ChildCard({ child }: ChildCardProps) {
         })
       );
 
-      // Generate report HTML
       const htmlContent = generateEmailHTML(
         {
           child,
@@ -418,7 +462,6 @@ export default function ChildCard({ child }: ChildCardProps) {
       );
 
       if (isMobileDevice()) {
-        // Mobile: Create visible iframe with print button
         const overlay = document.createElement('div');
         overlay.style.position = 'fixed';
         overlay.style.top = '0';
@@ -477,7 +520,6 @@ export default function ChildCard({ child }: ChildCardProps) {
         overlay.appendChild(container);
         document.body.appendChild(overlay);
         
-        // Load content into iframe
         const frameDoc = printFrame.contentWindow?.document;
         if (frameDoc) {
           frameDoc.open();
@@ -485,14 +527,12 @@ export default function ChildCard({ child }: ChildCardProps) {
           frameDoc.close();
         }
         
-        // Close button handler
         const closeBtn = header.querySelector('#closePreview');
         closeBtn?.addEventListener('click', () => {
           document.body.removeChild(overlay);
           setIsPrinting(false);
         });
         
-        // Print button handler
         const printBtn = footer.querySelector('#printButton');
         printBtn?.addEventListener('click', () => {
           try {
@@ -504,11 +544,9 @@ export default function ChildCard({ child }: ChildCardProps) {
           }
         });
         
-        // Reset loading state
         setIsPrinting(false);
         
       } else {
-        // Desktop: Use traditional print dialog
         const printWindow = window.open('', '_blank');
         if (printWindow) {
           printWindow.document.write(htmlContent);
@@ -532,7 +570,7 @@ export default function ChildCard({ child }: ChildCardProps) {
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-xl font-semibold text-gray-800 mb-2">{child.name}</h3>
         <div className="bg-yellow-50 border border-yellow-200 rounded p-4 text-sm text-yellow-800">
-          Please set your initials in your profile to start tracking sleep.
+          Please set your initials in your profile to start tracking.
         </div>
       </div>
     );
@@ -540,132 +578,181 @@ export default function ChildCard({ child }: ChildCardProps) {
 
   return (
     <>
-      <div className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6">
-        {/* Child Info with Photo and Edit Buttons */}
-        <div className="flex items-start gap-4 mb-4">
-          {/* Photo */}
-          <div className="flex-shrink-0">
-            {child.photoUrl ? (
-              <div className="relative w-20 h-20 rounded-full overflow-hidden border-4 border-blue-500">
-                <Image
-                  src={child.photoUrl}
-                  alt={child.name}
-                  fill
-                  className="object-cover"
-                />
-              </div>
-            ) : (
-              <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center text-3xl border-4 border-blue-500">
-                👶
-              </div>
+      <div className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow">
+        {/* Child Info Header */}
+        <div className="p-6 pb-0">
+          <div className="flex items-start gap-4 mb-4">
+            {/* Photo */}
+            <div className="flex-shrink-0">
+              {child.photoUrl ? (
+                <div className="relative w-20 h-20 rounded-full overflow-hidden border-4 border-blue-500">
+                  <Image
+                    src={child.photoUrl}
+                    alt={child.name}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center text-3xl border-4 border-blue-500">
+                  👶
+                </div>
+              )}
+            </div>
+
+            {/* Info */}
+            <div className="flex-1">
+              <h3 className="text-xl font-semibold text-gray-800">{child.name}</h3>
+              <p className="text-sm text-gray-500">{calculateAge(child.dateOfBirth)}</p>
+            </div>
+
+            {/* Edit Buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={handleEditChild}
+                className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                title="Edit child information"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                </svg>
+              </button>
+              
+              <button
+                onClick={handleEditFamily}
+                className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                title="Edit family information"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {/* Tab Navigation */}
+          <div className="flex border-b border-gray-200 -mx-6 px-6">
+            {showSleepTab && (
+              <button
+                onClick={() => setActiveTab('sleep')}
+                className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
+                  activeTab === 'sleep'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                😴 Sleep
+              </button>
+            )}
+            {showCareTab && (
+              <button
+                onClick={() => setActiveTab('care')}
+                className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
+                  activeTab === 'care'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                🍼 Care
+              </button>
             )}
           </div>
-
-          {/* Info */}
-          <div className="flex-1">
-            <h3 className="text-xl font-semibold text-gray-800">{child.name}</h3>
-            <p className="text-sm text-gray-500">{calculateAge(child.dateOfBirth)}</p>
-          </div>
-
-          {/* Edit Buttons */}
-          <div className="flex gap-2">
-            <button
-              onClick={handleEditChild}
-              className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-              title="Edit child information"
-              aria-label="Edit child"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-              </svg>
-            </button>
-            
-            <button
-              onClick={handleEditFamily}
-              className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-              title="Edit family information"
-              aria-label="Edit family"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-              </svg>
-            </button>
-          </div>
         </div>
 
-        {/* Sleep Info */}
-        <div className="mb-4 text-sm">
-          <div className="flex justify-between py-1">
-            <span className="text-gray-500">Total Sleep Today:</span>
-            <span className="font-semibold text-gray-800">{formatTotalSleep(totalSleepMinutes)}</span>
-          </div>
-        </div>
+        {/* Tab Content */}
+        <div className="p-6">
+          {/* SLEEP TAB */}
+          {activeTab === 'sleep' && showSleepTab && (
+            <div className="space-y-4">
+              {/* Sleep Info */}
+              <div className="mb-4 text-sm">
+                <div className="flex justify-between py-1">
+                  <span className="text-gray-500">Total Sleep Today:</span>
+                  <span className="font-semibold text-gray-800">{formatTotalSleep(totalSleepMinutes)}</span>
+                </div>
+              </div>
 
-        {/* Timer */}
-        {activeSession && timerStartTime && (
-          <div className="mb-4">
-            <Timer startTime={timerStartTime} />
-          </div>
-        )}
+              {/* Timer */}
+              {activeSession && timerStartTime && (
+                <div className="mb-4">
+                  <Timer startTime={timerStartTime} />
+                </div>
+              )}
 
-        {/* Action Buttons */}
-        <div className="space-y-2">
-          {!activeSession ? (
-            <Button variant="primary" className="w-full" onClick={handleStartSleep}>
-              🟢 Start Sleep
-            </Button>
-          ) : (
-            <>
-              <Button variant="primary" className="w-full" onClick={handleCheck}>
-                🔍 Check
-              </Button>
-              <Button variant="danger" className="w-full" onClick={handleStopSleep}>
-                ⛔ Stop
-              </Button>
-            </>
+              {/* Action Buttons */}
+              <div className="space-y-2">
+                {!activeSession ? (
+                  <Button variant="primary" className="w-full" onClick={handleStartSleep}>
+                    🟢 Start Sleep
+                  </Button>
+                ) : (
+                  <>
+                    <Button variant="primary" className="w-full" onClick={handleCheck}>
+                      🔍 Check
+                    </Button>
+                    <Button variant="danger" className="w-full" onClick={handleStopSleep}>
+                      ⛔ Stop
+                    </Button>
+                  </>
+                )}
+              </div>
+
+              {/* Status */}
+              <div className={`mt-4 p-3 rounded text-xs text-center ${
+                activeSession ? 'bg-green-50 text-green-800' : 'bg-blue-50 text-blue-800'
+              }`}>
+                {activeSession ? '😴 Sleeping...' : 'No active sleep session'}
+              </div>
+
+              {/* Sleep Log Tables */}
+              {sessions.length > 0 && (
+                <div className="mt-6 border-t pt-4">
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-semibold text-gray-700">Today's Sleep Log</h4>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="secondary"
+                        onClick={handleSendEmail}
+                        isLoading={isSendingEmail}
+                        className="text-xs px-3 py-1"
+                      >
+                        📧 Email
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onClick={handlePrint}
+                        isLoading={isPrinting}
+                        className="text-xs px-3 py-1"
+                      >
+                        🖨️ Print
+                      </Button>
+                    </div>
+                  </div>
+                  {sessions.map((sessionEntries, index) => (
+                    <SleepLogTable
+                      key={index}
+                      entries={sessionEntries}
+                      sessionNumber={index + 1}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* CARE TAB */}
+          {activeTab === 'care' && showCareTab && (
+            <CareTab child={{ ...child, careLogSettings }} />
+          )}
+
+          {/* If no tabs are visible */}
+          {!showSleepTab && !showCareTab && (
+            <div className="text-center py-8 text-gray-500">
+              <p>No tracking enabled for this child.</p>
+              <p className="text-sm mt-2">Enable Sleep or Care logs in Settings → Edit Child</p>
+            </div>
           )}
         </div>
-
-        {/* Status */}
-        <div className={`mt-4 p-3 rounded text-xs text-center ${
-          activeSession ? 'bg-green-50 text-green-800' : 'bg-blue-50 text-blue-800'
-        }`}>
-          {activeSession ? '😴 Sleeping...' : 'No active sleep session'}
-        </div>
-
-        {/* Sleep Log Tables */}
-        {sessions.length > 0 && (
-          <div className="mt-6 border-t pt-4">
-            <div className="flex justify-between items-center mb-3">
-              <h4 className="font-semibold text-gray-700">Today's Sleep Log</h4>
-              <div className="flex gap-2">
-                <Button
-                  variant="secondary"
-                  onClick={handleSendEmail}
-                  isLoading={isSendingEmail}
-                  className="text-xs px-3 py-1"
-                >
-                  📧 Email
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={handlePrint}
-                  isLoading={isPrinting}
-                  className="text-xs px-3 py-1"
-                >
-                  🖨️ Print
-                </Button>
-              </div>
-            </div>
-            {sessions.map((sessionEntries, index) => (
-              <SleepLogTable
-                key={index}
-                entries={sessionEntries}
-                sessionNumber={index + 1}
-              />
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Sleep Action Modal */}
