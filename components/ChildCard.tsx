@@ -55,8 +55,12 @@ export default function ChildCard({ child }: ChildCardProps) {
     return ageInMonths < 24;
   };
 
-  const showSleepTab = needsSleepTracking();
+  // Show Sleep tab for ALL children (parents want nap info for older kids too)
+  const showSleepTab = true;
   const showCareTab = careLogSettings?.enabled || false;
+  
+  // California compliance indicator (required for under 24 months)
+  const isComplianceRequired = needsSleepTracking();
 
   // Fetch family data
   useEffect(() => {
@@ -85,16 +89,12 @@ export default function ChildCard({ child }: ChildCardProps) {
         if (settingsDoc.exists()) {
           setCareLogSettings(settingsDoc.data());
         } else {
-          // Set smart defaults if no settings exist
-          const birthDate = new Date(child.dateOfBirth);
-          const ageInMonths = (now.getFullYear() - birthDate.getFullYear()) * 12 + 
-                             (now.getMonth() - birthDate.getMonth());
-          
+          // Enable care logs for ALL kids by default
           const defaults = {
             enabled: true,
-            trackDiapers: ageInMonths < 36, // Under 3 years
-            trackMeals: true, // All ages
-            trackBottles: ageInMonths < 18, // Under 18 months
+            trackDiapers: true,
+            trackMeals: true,
+            trackBottles: true,
             pottyTrained: false,
             noBottles: false,
           };

@@ -8,7 +8,6 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Button from '@/components/Button';
 import ChildCard from '@/components/ChildCard';
-import NotificationPermission from '@/components/NotificationPermission';
 import { Child } from '@/types';
 import Link from 'next/link';
 
@@ -28,6 +27,7 @@ export default function DashboardPage() {
   }
 
   // Helper function to check if child needs sleep tracking (under 24 months)
+  // Used for California compliance indicator
   function needsSleepTracking(child: Child): boolean {
     return getAgeInMonths(child.dateOfBirth) < 24;
   }
@@ -62,6 +62,13 @@ export default function DashboardPage() {
         createdAt: doc.data().createdAt?.toDate() || new Date(),
       })) as Child[];
 
+      // Sort children by age (youngest first)
+      childrenData.sort((a, b) => {
+        const ageA = getAgeInMonths(a.dateOfBirth);
+        const ageB = getAgeInMonths(b.dateOfBirth);
+        return ageA - ageB;
+      });
+
       setChildren(childrenData);
       setLoading(false);
     }, (error) => {
@@ -88,6 +95,9 @@ export default function DashboardPage() {
       </div>
     );
   }
+
+  // Count children under 2 for compliance info
+  const childrenUnder2 = children.filter(needsSleepTracking);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -194,13 +204,9 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* NEW: Notification Permission Banner */}
-        <NotificationPermission />
-
         <div className="mb-6 flex justify-between items-center">
           <h2 className="text-3xl font-bold text-gray-800">
             Children Dashboard
-            <span className="text-lg text-gray-500 ml-3">(Under 2 Years Old)</span>
           </h2>
           {user.role === 'admin' && (
             <Button
@@ -212,63 +218,50 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Filter children under 2 years for sleep tracking */}
-        {(() => {
-          const childrenUnder2 = children.filter(needsSleepTracking);
-          const childrenOver2Count = children.length - childrenUnder2.length;
+        {/* California Compliance Info */}
+        {childrenUnder2.length > 0 && (
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-start">
+              <span className="text-2xl mr-3">📋</span>
+              <div>
+                <h3 className="font-semibold text-blue-900">California Title 22 Compliance</h3>
+                <p className="text-sm text-blue-800">
+                  {childrenUnder2.length} {childrenUnder2.length === 1 ? 'child' : 'children'} under 2 years old require sleep tracking documentation.
+                  Sleep logs are available for all children.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
-          return (
-            <>
-              {/* Info banner about filtered children */}
-              {childrenOver2Count > 0 && (
-                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-start">
-                    <span className="text-2xl mr-3">ℹ️</span>
-                    <div>
-                      <h3 className="font-semibold text-blue-900">Sleep Tracking</h3>
-                      <p className="text-sm text-blue-800">
-                        Showing {childrenUnder2.length} children under 2 years old who require sleep tracking.
-                        {childrenOver2Count > 0 && (
-                          <> {childrenOver2Count} older {childrenOver2Count === 1 ? 'child' : 'children'} (2+ years) hidden from this view but still available for sign-in/out at the kiosk.</>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {childrenUnder2.length === 0 ? (
-                <div className="bg-white rounded-lg shadow p-12 text-center">
-                  <div className="text-6xl mb-4">👶</div>
-                  <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                    No Children Under 2 Years Old
-                  </h3>
-                  <p className="text-gray-600 mb-6">
-                    {children.length > 0 
-                      ? `All ${children.length} registered ${children.length === 1 ? 'child is' : 'children are'} 2 years or older and don't require sleep tracking.`
-                      : user.role === 'admin' 
-                        ? 'Add your first family to start tracking sleep sessions'
-                        : 'No children have been added to this daycare yet'}
-                  </p>
-                  {user.role === 'admin' && children.length === 0 && (
-                    <Button
-                      variant="primary"
-                      onClick={() => router.push('/register/family')}
-                    >
-                      Add First Family
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {childrenUnder2.map((child) => (
-                    <ChildCard key={child.id} child={child} />
-                  ))}
-                </div>
-              )}
-            </>
-          );
-        })()}
+        {/* Children Grid - Show ALL children */}
+        {children.length === 0 ? (
+          <div className="bg-white rounded-lg shadow p-12 text-center">
+            <div className="text-6xl mb-4">👶</div>
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">
+              No Children Registered
+            </h3>
+            <p className="text-gray-600 mb-6">
+              {user.role === 'admin' 
+                ? 'Add your first family to start tracking sleep and care logs'
+                : 'No children have been added to this daycare yet'}
+            </p>
+            {user.role === 'admin' && (
+              <Button
+                variant="primary"
+                onClick={() => router.push('/register/family')}
+              >
+                Add First Family
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {children.map((child) => (
+              <ChildCard key={child.id} child={child} />
+            ))}
+          </div>
+        )}
 
         {/* Quick Links Card - Admin Only */}
         {user.role === 'admin' && children.length > 0 && (
@@ -319,10 +312,10 @@ export default function DashboardPage() {
               >
                 <div className="flex items-center mb-2">
                   <span className="text-3xl mr-3">📊</span>
-                  <h4 className="text-lg font-semibold text-green-900">Daily Sleep Reports</h4>
+                  <h4 className="text-lg font-semibold text-green-900">Daily Reports</h4>
                 </div>
                 <p className="text-sm text-green-700">
-                  Generate and email daily sleep logs to parents
+                  Generate and email daily sleep & care logs to parents
                 </p>
                 <p className="text-xs text-green-600 mt-2 group-hover:underline">
                   Create reports →
@@ -364,26 +357,19 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Phase 5 Complete Notice */}
+        {/* Features Complete Notice */}
         {user.initials && children.length > 0 && (
           <div className="mt-8 bg-green-50 border border-green-200 rounded-lg p-6">
             <h3 className="text-lg font-semibold text-green-900 mb-2">
-              ✅ All Phases Complete!
+              ✅ All Features Active!
             </h3>
             <ul className="text-green-800 space-y-1 text-sm">
-              <li>✅ Authentication & user management</li>
-              <li>✅ Daycare & family registration</li>
-              <li>✅ Sleep tracking with timers</li>
-              <li>✅ Real-time logs & Firestore sync</li>
+              <li>✅ Sleep tracking with timers (all ages)</li>
+              <li>✅ Care logs - Diapers, Meals, Bottles</li>
               <li>✅ Email & print reports</li>
-              <li>✅ Full compliance documentation</li>
-              <li>✅ Edit families & children</li>
+              <li>✅ California compliance documentation</li>
               <li>✅ Electronic sign-in/out with signatures</li>
-              <li>✅ Mobile alerts with vibration & notifications</li>
             </ul>
-            <p className="mt-4 text-sm text-green-700">
-              <strong>🎉 Your SleepLog app is fully functional!</strong>
-            </p>
           </div>
         )}
       </main>
