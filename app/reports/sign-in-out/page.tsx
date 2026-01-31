@@ -85,7 +85,212 @@ export default function SignInOutReportsPage() {
   }
 
   function handlePrint() {
-    window.print();
+    if (records.length === 0) {
+      alert('No records to print');
+      return;
+    }
+
+    const formattedDate = new Date(selectedDate).toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Sign-In/Out Records - ${selectedDate}</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.4;
+      color: #333;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+      font-size: 12px;
+    }
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+    .header p {
+      margin: 5px 0 0 0;
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    .summary {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    .summary-card {
+      flex: 1;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .summary-card.total {
+      background: #e3f2fd;
+      border: 1px solid #2196f3;
+    }
+    .summary-card.sign-in {
+      background: #e8f5e9;
+      border: 1px solid #4caf50;
+    }
+    .summary-card.sign-out {
+      background: #ffebee;
+      border: 1px solid #f44336;
+    }
+    .summary-card .count {
+      font-size: 28px;
+      font-weight: bold;
+    }
+    .summary-card .label {
+      font-size: 12px;
+      color: #666;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th {
+      background: #f5f5f5;
+      padding: 10px 8px;
+      text-align: left;
+      font-weight: bold;
+      border-bottom: 2px solid #ddd;
+      font-size: 11px;
+    }
+    td {
+      padding: 10px 8px;
+      border-bottom: 1px solid #eee;
+      vertical-align: middle;
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: bold;
+    }
+    .badge-in {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+    .badge-out {
+      background: #ffebee;
+      color: #c62828;
+    }
+    .signature-img {
+      max-height: 40px;
+      max-width: 120px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .no-signature {
+      color: #999;
+      font-style: italic;
+      font-size: 10px;
+    }
+    .footer {
+      margin-top: 30px;
+      padding-top: 15px;
+      border-top: 2px solid #ddd;
+      text-align: center;
+      color: #666;
+      font-size: 10px;
+    }
+    @media print {
+      body { padding: 10px; }
+      .header { padding: 15px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📋 Sign-In/Out Records</h1>
+    <p>${formattedDate}</p>
+  </div>
+
+  <div class="summary">
+    <div class="summary-card total">
+      <div class="count">${records.length}</div>
+      <div class="label">Total Records</div>
+    </div>
+    <div class="summary-card sign-in">
+      <div class="count">${signIns.length}</div>
+      <div class="label">Sign-Ins</div>
+    </div>
+    <div class="summary-card sign-out">
+      <div class="count">${signOuts.length}</div>
+      <div class="label">Sign-Outs</div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Time</th>
+        <th>Child</th>
+        <th>Type</th>
+        <th>Parent/Guardian</th>
+        <th>Relationship</th>
+        <th>ID Number</th>
+        <th>Signature</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${records.map(record => `
+        <tr>
+          <td>${formatTime(record.timestamp)}</td>
+          <td><strong>${record.childName}</strong></td>
+          <td>
+            <span class="badge ${record.type === 'sign-in' ? 'badge-in' : 'badge-out'}">
+              ${record.type === 'sign-in' ? '✅ Sign In' : '👋 Sign Out'}
+            </span>
+          </td>
+          <td>${record.parentFullName}</td>
+          <td>${record.relationship}</td>
+          <td>${record.idNumber || '-'}</td>
+          <td>
+            ${record.signature 
+              ? `<img src="${record.signature}" alt="Signature" class="signature-img" />` 
+              : '<span class="no-signature">No signature</span>'}
+          </td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+
+  <div class="footer">
+    <p>Generated on ${new Date().toLocaleString()}</p>
+    <p>This document contains electronic signatures collected at sign-in/out</p>
+  </div>
+</body>
+</html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+      }, 500);
+    }
   }
 
   function exportToCSV() {
@@ -94,7 +299,7 @@ export default function SignInOutReportsPage() {
       return;
     }
 
-    const headers = ['Time', 'Child Name', 'Type', 'Parent/Guardian', 'Relationship', 'ID Number', 'Notes'];
+    const headers = ['Time', 'Child Name', 'Type', 'Parent/Guardian', 'Relationship', 'ID Number', 'Notes', 'Has Signature', 'Signature (Base64)'];
     const rows = records.map(record => [
       formatTime(record.timestamp),
       record.childName,
@@ -103,11 +308,13 @@ export default function SignInOutReportsPage() {
       record.relationship,
       record.idNumber || '-',
       record.notes || '-',
+      record.signature ? 'Yes' : 'No',
+      record.signature || '-',
     ]);
 
     const csvContent = [
       headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
     ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv' });
