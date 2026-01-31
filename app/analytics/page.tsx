@@ -7,13 +7,13 @@ import { useEffect, useState } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Button from '@/components/Button';
+import Navbar from '@/components/Navbar';
 import SleepAnalytics from '@/components/SleepAnalytics';
 import { Child, SleepLogEntry } from '@/types';
 import { exportAllChildrenToCSV } from '@/utils/csvExport';
-import Link from 'next/link';
 
 export default function AnalyticsPage() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,11 +55,6 @@ export default function AnalyticsPage() {
     } finally {
       setLoading(false);
     }
-  }
-
-  async function handleLogout() {
-    await logout();
-    router.push('/login');
   }
 
   async function handleExportCSV() {
@@ -134,46 +129,7 @@ export default function AnalyticsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navigation Bar */}
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-8">
-              <Link href="/dashboard">
-                <h1 className="text-2xl font-bold text-blue-900 cursor-pointer">💤 SleepLog</h1>
-              </Link>
-              <Link href="/dashboard" className="text-gray-600 hover:text-gray-900">
-                Dashboard
-              </Link>
-              {user.role === 'admin' && (
-                <Link href="/staff" className="text-gray-600 hover:text-gray-900">
-                  Staff
-                </Link>
-              )}
-              <Link href="/reports" className="text-gray-600 hover:text-gray-900">
-                Reports
-              </Link>
-              <Link href="/analytics" className="text-blue-600 font-medium">
-                Analytics
-              </Link>
-              <Link href="/settings" className="text-gray-600 hover:text-gray-900">
-                Settings
-              </Link>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
-                {user.firstName} {user.lastName}
-              </span>
-              <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
-                {user.role.toUpperCase()}
-              </span>
-              <Button variant="secondary" onClick={handleLogout}>
-                Logout
-              </Button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

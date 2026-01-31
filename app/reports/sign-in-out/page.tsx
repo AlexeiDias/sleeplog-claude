@@ -1,66 +1,122 @@
-//app/dashboard/page.tsx
+//app/reports/sign-in-out/page.tsx
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Button from '@/components/Button';
-import ChildCard from '@/components/ChildCard';
-import { Child } from '@/types';
-import Link from 'next/link';
+import Navbar from '@/components/Navbar';
+import DatePicker from '@/components/DatePicker';
+import { SignInOutRecord } from '@/types';
 
-export default function DashboardPage() {
-  const { user, logout } = useAuth();
+// Helper function to get local date string (YYYY-MM-DD)
+function getLocalDateString(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export default function SignInOutReportsPage() {
+  const { user } = useAuth();
   const router = useRouter();
-  const [children, setChildren] = useState<Child[]>([]);
+  const [records, setRecords] = useState<SignInOutRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState(getLocalDateString());
 
   useEffect(() => {
-    // Redirect to login if not authenticated
     if (!user) {
       router.push('/login');
       return;
     }
 
-    // Redirect to daycare registration if no daycare
-    if (user && !user.daycareId) {
+    if (!user.daycareId) {
       router.push('/register/daycare');
       return;
     }
 
-    // Listen to children in real-time
+    fetchRecords();
+  }, [user, router, selectedDate]);
+
+  async function fetchRecords() {
     if (!user?.daycareId) return;
 
-    const q = query(
-      collection(db, 'children'),
-      where('daycareId', '==', user.daycareId)
-    );
+    setLoading(true);
 
-    // Set up real-time listener
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const childrenData = snapshot.docs.map(doc => ({
+    try {
+      // Create date range for selected date (start of day to end of day)
+      const startOfDay = new Date(selectedDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      
+      const endOfDay = new Date(selectedDate);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      const q = query(
+        collection(db, 'signInOut'),
+        where('daycareId', '==', user.daycareId),
+        where('timestamp', '>=', Timestamp.fromDate(startOfDay)),
+        where('timestamp', '<=', Timestamp.fromDate(endOfDay)),
+        orderBy('timestamp', 'desc')
+      );
+
+      const snapshot = await getDocs(q);
+      const recordsData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
-        dateOfBirth: doc.data().dateOfBirth?.toDate() || new Date(),
+        timestamp: doc.data().timestamp?.toDate() || new Date(),
         createdAt: doc.data().createdAt?.toDate() || new Date(),
-      })) as Child[];
+      })) as SignInOutRecord[];
 
-      setChildren(childrenData);
+      setRecords(recordsData);
+    } catch (error) {
+      console.error('Error fetching records:', error);
+    } finally {
       setLoading(false);
-    }, (error) => {
-      console.error('Error fetching children:', error);
-      setLoading(false);
+    }
+  }
+
+  function formatTime(date: Date): string {
+    return new Date(date).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
     });
+  }
 
-    // Cleanup listener on unmount
-    return () => unsubscribe();
-  }, [user, router]);
+  function handlePrint() {
+    window.print();
+  }
 
-  async function handleLogout() {
-    await logout();
-    router.push('/login');
+  function exportToCSV() {
+    if (records.length === 0) {
+      alert('No records to export');
+      return;
+    }
+
+    const headers = ['Time', 'Child Name', 'Type', 'Parent/Guardian', 'Relationship', 'ID Number', 'Notes'];
+    const rows = records.map(record => [
+      formatTime(record.timestamp),
+      record.childName,
+      record.type === 'sign-in' ? 'Sign In' : 'Sign Out',
+      record.parentFullName,
+      record.relationship,
+      record.idNumber || '-',
+      record.notes || '-',
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sign-in-out-records-${selectedDate}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   if (!user || loading) {
@@ -74,269 +130,166 @@ export default function DashboardPage() {
     );
   }
 
+  const signIns = records.filter(r => r.type === 'sign-in');
+  const signOuts = records.filter(r => r.type === 'sign-out');
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navigation Bar */}
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-8">
-              <Link href="/dashboard">
-                <h1 className="text-2xl font-bold text-blue-900 cursor-pointer">💤 SleepLog</h1>
-              </Link>
-              {user.role === 'admin' && (
-                <Link href="/staff" className="text-gray-600 hover:text-gray-900">
-                  Staff
-                </Link>
-              )}
-              
-              {/* Reports Dropdown */}
-              <div className="relative group">
-                <Link href="/reports" className="text-gray-600 hover:text-gray-900 flex items-center">
-                  Reports
-                  <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </Link>
-                
-                {/* Dropdown Menu */}
-                <div className="absolute left-0 mt-2 w-56 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                  <div className="py-2">
-                    <Link 
-                      href="/reports" 
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      📊 Daily Sleep Reports
-                    </Link>
-                    <Link 
-                      href="/reports/sign-in-out" 
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      📋 Sign-In/Out Records
-                    </Link>
-                  </div>
-                </div>
-              </div>
-              
-              <Link href="/analytics" className="text-gray-600 hover:text-gray-900">
-                Analytics
-              </Link>
-              
-              {/* Kiosk Setup - Admin Only */}
-              {user.role === 'admin' && (
-                <Link href="/kiosk-setup" className="text-gray-600 hover:text-gray-900">
-                  🖥️ Kiosk
-                </Link>
-              )}
-              
-              <Link href="/settings" className="text-gray-600 hover:text-gray-900">
-                Settings
-              </Link>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
-                {user.firstName} {user.lastName}
-                {user.initials && (
-                  <span className="ml-2 px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
-                    {user.initials}
-                  </span>
-                )}
-              </span>
-              <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
-                {user.role.toUpperCase()}
-              </span>
-              {!user.initials && (
-                <Link href="/profile">
-                  <Button variant="primary" className="text-xs">
-                    Set Initials
-                  </Button>
-                </Link>
-              )}
-              <Button variant="secondary" onClick={handleLogout}>
-                Logout
-              </Button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {!user.initials && (
-          <div className="mb-6 p-4 bg-yellow-50 border-2 border-yellow-300 rounded-lg">
-            <div className="flex items-center">
-              <span className="text-2xl mr-3">⚠️</span>
-              <div>
-                <h3 className="font-semibold text-yellow-900">Initials Required</h3>
-                <p className="text-sm text-yellow-800">
-                  You need to set your initials before you can track sleep sessions.{' '}
-                  <Link href="/profile" className="underline font-medium">
-                    Set them now
-                  </Link>
-                </p>
+        <div className="mb-6">
+          <h2 className="text-3xl font-bold text-gray-800 mb-4">Sign-In/Out Records</h2>
+          
+          {/* Date Picker & Actions */}
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+              <DatePicker
+                selectedDate={selectedDate}
+                onDateChange={setSelectedDate}
+                label="View Records For"
+              />
+              
+              <div className="flex gap-3">
+                <Button variant="secondary" onClick={handlePrint}>
+                  🖨️ Print
+                </Button>
+                <Button variant="secondary" onClick={exportToCSV}>
+                  📥 Export CSV
+                </Button>
               </div>
             </div>
           </div>
-        )}
-
-        <div className="mb-6 flex justify-between items-center">
-          <h2 className="text-3xl font-bold text-gray-800">
-            Children Dashboard
-          </h2>
-          {user.role === 'admin' && (
-            <Button
-              variant="primary"
-              onClick={() => router.push('/register/family')}
-            >
-              + Add Family
-            </Button>
-          )}
         </div>
 
-        {children.length === 0 ? (
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="text-2xl font-bold text-blue-600">{records.length}</div>
+            <div className="text-sm text-gray-600">Total Records</div>
+          </div>
+          <div className="bg-green-50 rounded-lg shadow p-4 border border-green-200">
+            <div className="text-2xl font-bold text-green-600">{signIns.length}</div>
+            <div className="text-sm text-gray-600">Sign-Ins</div>
+          </div>
+          <div className="bg-red-50 rounded-lg shadow p-4 border border-red-200">
+            <div className="text-2xl font-bold text-red-600">{signOuts.length}</div>
+            <div className="text-sm text-gray-600">Sign-Outs</div>
+          </div>
+        </div>
+
+        {/* Records Table */}
+        {records.length === 0 ? (
           <div className="bg-white rounded-lg shadow p-12 text-center">
-            <div className="text-6xl mb-4">👶</div>
+            <div className="text-6xl mb-4">📋</div>
             <h3 className="text-xl font-semibold text-gray-700 mb-2">
-              No Children Registered Yet
+              No Records Found
             </h3>
-            <p className="text-gray-600 mb-6">
-              {user.role === 'admin' 
-                ? 'Add your first family to start tracking sleep sessions'
-                : 'No children have been added to this daycare yet'}
+            <p className="text-gray-600">
+              No sign-in/out records for this date
             </p>
-            {user.role === 'admin' && (
-              <Button
-                variant="primary"
-                onClick={() => router.push('/register/family')}
-              >
-                Add First Family
-              </Button>
-            )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {children.map((child) => (
-              <ChildCard key={child.id} child={child} />
-            ))}
-          </div>
-        )}
-
-        {/* Quick Links Card - Admin Only */}
-        {user.role === 'admin' && children.length > 0 && (
-          <div className="mt-8 bg-white rounded-lg shadow-lg p-6">
-            <h3 className="text-xl font-semibold text-gray-800 mb-4">
-              🔗 Quick Links
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              
-              {/* Kiosk Setup */}
-              <Link
-                href="/kiosk-setup"
-                className="block p-4 bg-gradient-to-br from-purple-50 to-purple-100 hover:from-purple-100 hover:to-purple-200 rounded-lg border border-purple-200 transition-all group"
-              >
-                <div className="flex items-center mb-2">
-                  <span className="text-3xl mr-3">🖥️</span>
-                  <h4 className="text-lg font-semibold text-purple-900">Kiosk Setup</h4>
-                </div>
-                <p className="text-sm text-purple-700">
-                  Configure tablet for parent sign-in/out at entrance
-                </p>
-                <p className="text-xs text-purple-600 mt-2 group-hover:underline">
-                  Set up kiosk →
-                </p>
-              </Link>
-
-              {/* Sign-In/Out Records */}
-              <Link
-                href="/reports/sign-in-out"
-                className="block p-4 bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 rounded-lg border border-blue-200 transition-all group"
-              >
-                <div className="flex items-center mb-2">
-                  <span className="text-3xl mr-3">📋</span>
-                  <h4 className="text-lg font-semibold text-blue-900">Sign-In/Out Records</h4>
-                </div>
-                <p className="text-sm text-blue-700">
-                  View, print, and export parent signature records
-                </p>
-                <p className="text-xs text-blue-600 mt-2 group-hover:underline">
-                  View records →
-                </p>
-              </Link>
-
-              {/* Daily Reports */}
-              <Link
-                href="/reports"
-                className="block p-4 bg-gradient-to-br from-green-50 to-green-100 hover:from-green-100 hover:to-green-200 rounded-lg border border-green-200 transition-all group"
-              >
-                <div className="flex items-center mb-2">
-                  <span className="text-3xl mr-3">📊</span>
-                  <h4 className="text-lg font-semibold text-green-900">Daily Sleep Reports</h4>
-                </div>
-                <p className="text-sm text-green-700">
-                  Generate and email daily sleep logs to parents
-                </p>
-                <p className="text-xs text-green-600 mt-2 group-hover:underline">
-                  Create reports →
-                </p>
-              </Link>
-            </div>
-
-            {/* Direct Kiosk Link */}
-            <div className="mt-6 p-4 bg-yellow-50 border-2 border-yellow-200 rounded-lg">
-              <div className="flex items-start">
-                <span className="text-2xl mr-3">💡</span>
-                <div className="flex-1">
-                  <h4 className="font-semibold text-yellow-900 mb-1">
-                    Tablet Kiosk URL
-                  </h4>
-                  <p className="text-sm text-yellow-800 mb-2">
-                    Bookmark this on your entrance tablet:
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 bg-white px-3 py-2 rounded border border-yellow-300 text-sm font-mono text-yellow-900 overflow-x-auto">
-                      {typeof window !== 'undefined' ? window.location.origin : 'https://sleeplog-claude.vercel.app'}/sign-in
-                    </code>
-                    <button
-                      onClick={() => {
-                        if (typeof window !== 'undefined') {
-                          const url = `${window.location.origin}/sign-in`;
-                          navigator.clipboard.writeText(url);
-                          alert('URL copied to clipboard!');
-                        }
-                      }}
-                      className="px-3 py-2 bg-yellow-200 hover:bg-yellow-300 text-yellow-900 rounded text-sm font-medium whitespace-nowrap"
-                    >
-                      📋 Copy
-                    </button>
-                  </div>
-                </div>
-              </div>
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Time
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Child
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Type
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Parent/Guardian
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Relationship
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Signature
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {records.map((record) => (
+                    <tr key={record.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {formatTime(record.timestamp)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {record.childName}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          record.type === 'sign-in'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {record.type === 'sign-in' ? '✅ Sign In' : '👋 Sign Out'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {record.parentFullName}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {record.relationship}
+                        {record.idNumber && (
+                          <span className="block text-xs text-gray-400">
+                            ID: {record.idNumber}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {record.signature ? (
+                          <img
+                            src={record.signature}
+                            alt="Signature"
+                            className="h-10 w-auto border border-gray-200 rounded"
+                          />
+                        ) : (
+                          <span className="text-gray-400 text-sm">No signature</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
 
-        {/* Phase 5 Complete Notice */}
-        {user.initials && children.length > 0 && (
-          <div className="mt-8 bg-green-50 border border-green-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-green-900 mb-2">
-              ✅ All Phases Complete!
-            </h3>
-            <ul className="text-green-800 space-y-1 text-sm">
-              <li>✅ Authentication & user management</li>
-              <li>✅ Daycare & family registration</li>
-              <li>✅ Sleep tracking with timers</li>
-              <li>✅ Real-time logs & Firestore sync</li>
-              <li>✅ Email & print reports</li>
-              <li>✅ Full compliance documentation</li>
-              <li>✅ Edit families & children</li>
-              <li>✅ Electronic sign-in/out with signatures</li>
-            </ul>
-            <p className="mt-4 text-sm text-green-700">
-              <strong>🎉 Your SleepLog app is fully functional!</strong>
-            </p>
-          </div>
-        )}
+        {/* Info Box */}
+        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4 print:hidden">
+          <h3 className="text-sm font-semibold text-blue-900 mb-2">📋 About Sign-In/Out Records</h3>
+          <ul className="text-sm text-blue-800 space-y-1">
+            <li>• Records are created when parents sign in/out at the kiosk</li>
+            <li>• Electronic signatures are captured and stored securely</li>
+            <li>• Export to CSV for your records or compliance reports</li>
+            <li>• Print feature creates a printable version of the records</li>
+          </ul>
+        </div>
       </main>
+
+      {/* Print Styles */}
+      <style jsx global>{`
+        @media print {
+          nav, .print\\:hidden {
+            display: none !important;
+          }
+          body {
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
+          }
+        }
+      `}</style>
     </div>
   );
 }
