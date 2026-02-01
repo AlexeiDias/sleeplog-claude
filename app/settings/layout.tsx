@@ -4,7 +4,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import Button from '@/components/Button';
+import Navbar from '@/components/Navbar';
 import { useEffect } from 'react';
 
 export default function SettingsLayout({
@@ -12,7 +12,7 @@ export default function SettingsLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -21,11 +21,6 @@ export default function SettingsLayout({
       router.push('/login');
     }
   }, [user, router]);
-
-  async function handleLogout() {
-    await logout();
-    router.push('/login');
-  }
 
   if (!user) {
     return (
@@ -42,46 +37,8 @@ export default function SettingsLayout({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navigation Bar */}
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-8">
-              <Link href="/dashboard">
-                <h1 className="text-2xl font-bold text-blue-900 cursor-pointer">💤 SleepLog</h1>
-              </Link>
-              <Link href="/dashboard" className="text-gray-600 hover:text-gray-900">
-                Dashboard
-              </Link>
-              {user.role === 'admin' && (
-                <Link href="/staff" className="text-gray-600 hover:text-gray-900">
-                  Staff
-                </Link>
-              )}
-              <Link href="/reports" className="text-gray-600 hover:text-gray-900">
-                Reports
-              </Link>
-              <Link href="/analytics" className="text-gray-600 hover:text-gray-900">
-                Analytics
-              </Link>
-              <Link href="/settings" className="text-blue-600 font-medium">
-                Settings
-              </Link>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
-                {user.firstName} {user.lastName}
-              </span>
-              <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
-                {user.role.toUpperCase()}
-              </span>
-              <Button variant="secondary" onClick={handleLogout}>
-                Logout
-              </Button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      {/* Shared Navigation Bar */}
+      <Navbar />
 
       {/* Settings Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -122,6 +79,16 @@ export default function SettingsLayout({
                       }`}
                     >
                       Families & Children
+                    </Link>
+                    <Link
+                      href="/settings/activities"
+                      className={`block px-4 py-2 rounded transition ${
+                        isActive('/settings/activities')
+                          ? 'bg-purple-50 text-purple-700 font-medium'
+                          : 'text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      🎨 Activity Categories
                     </Link>
                   </>
                 )}

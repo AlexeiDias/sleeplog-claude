@@ -8,7 +8,6 @@ import { updatePassword } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
-import Navbar from '@/components/Navbar';
 
 export default function ProfileSettingsPage() {
   const { user, refreshUser } = useAuth();
@@ -132,24 +131,21 @@ export default function ProfileSettingsPage() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
+    <>
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-2xl font-bold text-gray-800 mb-6">Profile Settings</h2>
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-2xl font-bold text-gray-800 mb-6">Profile Settings</h2>
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            {error}
+          </div>
+        )}
 
-          {error && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-              {error}
-            </div>
-          )}
-
-          {success && (
-            <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
-              {success}
-            </div>
-          )}
+        {success && (
+          <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+            {success}
+          </div>
+        )}
 
           {/* Profile Information */}
           <div className="border-b pb-6 mb-6">
@@ -324,7 +320,6 @@ export default function ProfileSettingsPage() {
             )}
           </div>
         </div>
-      </main>
-    </div>
+    </>
   );
 }

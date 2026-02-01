@@ -11,6 +11,7 @@ import SleepLogTable from './SleepLogTable';
 import EditChildModal from './EditChildModal';
 import EditFamilyModal from './EditFamilyModal';
 import CareTab from './CareTab';
+import ActivityTab from './ActivityTab';
 import { generateEmailHTML } from '@/utils/reportGenerator';
 import Image from 'next/image';
 
@@ -18,7 +19,7 @@ interface ChildCardProps {
   child: Child;
 }
 
-type TabType = 'sleep' | 'care';
+type TabType = 'sleep' | 'care' | 'activities';
 
 export default function ChildCard({ child }: ChildCardProps) {
   const { user } = useAuth();
@@ -58,6 +59,7 @@ export default function ChildCard({ child }: ChildCardProps) {
   // Show Sleep tab for ALL children (parents want nap info for older kids too)
   const showSleepTab = true;
   const showCareTab = careLogSettings?.enabled || false;
+  const showActivitiesTab = true; // Activities enabled for all children by default
   
   // California compliance indicator (required for under 24 months)
   const isComplianceRequired = needsSleepTracking();
@@ -649,11 +651,23 @@ export default function ChildCard({ child }: ChildCardProps) {
                 onClick={() => setActiveTab('care')}
                 className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
                   activeTab === 'care'
-                    ? 'border-blue-600 text-blue-600'
+                    ? 'border-green-600 text-green-600'
                     : 'border-transparent text-gray-600 hover:text-gray-900'
                 }`}
               >
                 🍼 Care
+              </button>
+            )}
+            {showActivitiesTab && (
+              <button
+                onClick={() => setActiveTab('activities')}
+                className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
+                  activeTab === 'activities'
+                    ? 'border-purple-600 text-purple-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                🎨 Activities
               </button>
             )}
           </div>
@@ -745,8 +759,13 @@ export default function ChildCard({ child }: ChildCardProps) {
             <CareTab child={{ ...child, careLogSettings }} />
           )}
 
+          {/* ACTIVITIES TAB */}
+          {activeTab === 'activities' && showActivitiesTab && (
+            <ActivityTab child={child} />
+          )}
+
           {/* If no tabs are visible */}
-          {!showSleepTab && !showCareTab && (
+          {!showSleepTab && !showCareTab && !showActivitiesTab && (
             <div className="text-center py-8 text-gray-500">
               <p>No tracking enabled for this child.</p>
               <p className="text-sm mt-2">Enable Sleep or Care logs in Settings → Edit Child</p>

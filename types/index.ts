@@ -175,3 +175,87 @@ export interface CareLogSummary {
   totalMealOz: number;
   entries: CareLogEntry[];
 }
+
+// ============================================
+// ACTIVITY LOG TYPES (NEW)
+// ============================================
+
+// Activity Category (customizable per daycare)
+export interface ActivityCategory {
+  id: string;
+  name: string; // e.g., "🎮 Games & Play"
+  activities: string[]; // Predefined activity names
+}
+
+// Activity Settings (per daycare)
+export interface ActivitySettings {
+  enabled: boolean;
+  categories: ActivityCategory[];
+}
+
+// Activity Log Entry
+export interface ActivityLogEntry {
+  id: string;
+  childId: string;
+  category: string; // Category name
+  activityName: string;
+  duration?: number; // Minutes (optional)
+  notes?: string;
+  timestamp: Date;
+  staffInitials: string;
+  staffId: string;
+  createdAt: Date;
+  lastEditedAt?: Date;
+  lastEditedBy?: string;
+  lastEditedByInitials?: string;
+  deleted?: boolean;
+}
+
+// Activity Log Summary (for daily reports)
+export interface ActivityLogSummary {
+  date: string;
+  childId: string;
+  totalActivities: number;
+  totalDuration: number; // Total minutes
+  entriesByCategory: { [category: string]: ActivityLogEntry[] };
+  entries: ActivityLogEntry[];
+}
+
+// Default Activity Categories
+export const DEFAULT_ACTIVITY_CATEGORIES: ActivityCategory[] = [
+  {
+    id: 'games',
+    name: '🎮 Games & Play',
+    activities: ['Memory Game', 'Puzzles', 'Building Blocks', 'Free Play', 'Board Games'],
+  },
+  {
+    id: 'learning',
+    name: '📚 Learning',
+    activities: ['Letters', 'Numbers', 'Reading', 'Writing', 'Flashcards'],
+  },
+  {
+    id: 'motor',
+    name: '✋ Motor Skills',
+    activities: ['Drawing', 'Tracing', 'Cutting', 'Coloring', 'Play-Doh'],
+  },
+  {
+    id: 'arts',
+    name: '🎨 Arts & Crafts',
+    activities: ['Painting', 'Crafts', 'Music', 'Dancing', 'Singing'],
+  },
+  {
+    id: 'stem',
+    name: '🔬 STEM',
+    activities: ['Science Experiment', 'Counting', 'Sorting', 'Patterns', 'Nature Walk'],
+  },
+  {
+    id: 'life',
+    name: '🏠 Life Skills',
+    activities: ['Cooking/Baking', 'Cleaning Up', 'Self-Care', 'Sharing', 'Taking Turns'],
+  },
+  {
+    id: 'outdoor',
+    name: '🌳 Outdoor',
+    activities: ['Playground', 'Running', 'Ball Games', 'Sandbox', 'Water Play'],
+  },
+];

@@ -1,5 +1,5 @@
 //utils/reportGenerator.ts
-import { SleepLogEntry, Child, CareLogEntry, DiaperEntry, MealEntry, BottleEntry } from '@/types';
+import { SleepLogEntry, Child, CareLogEntry, DiaperEntry, MealEntry, BottleEntry, ActivityLogEntry } from '@/types';
 
 export interface ReportData {
   child: Child;
@@ -12,6 +12,13 @@ export interface ReportData {
 export interface CareReportData {
   child: Child;
   entries: CareLogEntry[];
+  date: string;
+  staffMembers?: { initials: string; fullName: string }[];
+}
+
+export interface ActivityReportData {
+  child: Child;
+  entries: ActivityLogEntry[];
   date: string;
   staffMembers?: { initials: string; fullName: string }[];
 }
@@ -1167,4 +1174,293 @@ function getDiaperEmoji(type: string): string {
 
 function capitalize(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+// ============================================
+// ACTIVITY LOG REPORT (NEW)
+// ============================================
+
+export function generateActivityLogHTML(reportData: ActivityReportData, daycareInfo: any): string {
+  const { child, entries, date, staffMembers } = reportData;
+
+  const formattedDate = new Date(date).toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
+  // Group entries by category
+  const entriesByCategory: { [key: string]: ActivityLogEntry[] } = {};
+  entries.forEach(entry => {
+    if (!entriesByCategory[entry.category]) {
+      entriesByCategory[entry.category] = [];
+    }
+    entriesByCategory[entry.category].push(entry);
+  });
+
+  // Calculate totals
+  const totalActivities = entries.length;
+  const totalDuration = entries.reduce((sum, e) => sum + (e.duration || 0), 0);
+
+  // Get category color
+  function getCategoryStyle(category: string): { bg: string; text: string; border: string } {
+    if (category.includes('Games')) return { bg: '#f3e8ff', text: '#6b21a8', border: '#c084fc' };
+    if (category.includes('Learning')) return { bg: '#dbeafe', text: '#1e40af', border: '#60a5fa' };
+    if (category.includes('Motor')) return { bg: '#ffedd5', text: '#9a3412', border: '#fb923c' };
+    if (category.includes('Arts')) return { bg: '#fce7f3', text: '#9d174d', border: '#f472b6' };
+    if (category.includes('STEM')) return { bg: '#dcfce7', text: '#166534', border: '#4ade80' };
+    if (category.includes('Life')) return { bg: '#fef9c3', text: '#854d0e', border: '#facc15' };
+    if (category.includes('Outdoor')) return { bg: '#ccfbf1', text: '#115e59', border: '#2dd4bf' };
+    return { bg: '#f3f4f6', text: '#374151', border: '#9ca3af' };
+  }
+
+  let html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.4;
+      color: #333;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 15px;
+      font-size: 12px;
+    }
+    .header {
+      background: linear-gradient(135deg, #9333ea 0%, #ec4899 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+      margin-bottom: 15px;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+    .header p {
+      margin: 5px 0 0 0;
+      font-size: 13px;
+      opacity: 0.9;
+    }
+    .info-section {
+      background: #f8f9fa;
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+    }
+    .info-section h2 {
+      margin: 0 0 8px 0;
+      font-size: 14px;
+    }
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      font-size: 11px;
+    }
+    .label {
+      font-weight: bold;
+      color: #495057;
+    }
+    .summary-cards {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 15px;
+    }
+    .summary-card {
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .summary-card.activities {
+      background: #f3e8ff;
+      border: 1px solid #c084fc;
+    }
+    .summary-card.duration {
+      background: #fce7f3;
+      border: 1px solid #f472b6;
+    }
+    .summary-card .count {
+      font-size: 28px;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    .summary-card .label {
+      font-size: 11px;
+      color: #495057;
+    }
+    .section {
+      margin-bottom: 15px;
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+      overflow: hidden;
+      page-break-inside: avoid;
+    }
+    .section-header {
+      padding: 10px 12px;
+      font-weight: bold;
+      font-size: 13px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10px;
+    }
+    th {
+      background: #f8f9fa;
+      padding: 6px 8px;
+      text-align: left;
+      font-weight: bold;
+      color: #495057;
+      border-bottom: 2px solid #dee2e6;
+    }
+    td {
+      padding: 5px 8px;
+      border-bottom: 1px solid #dee2e6;
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+    .notes-cell {
+      font-style: italic;
+      color: #6c757d;
+      font-size: 9px;
+      max-width: 200px;
+    }
+    .footer {
+      margin-top: 15px;
+      padding-top: 12px;
+      border-top: 2px solid #dee2e6;
+      text-align: center;
+      color: #6c757d;
+      font-size: 10px;
+      line-height: 1.4;
+    }
+    h2 {
+      font-size: 14px;
+      margin: 12px 0 8px 0;
+    }
+    .no-entries {
+      padding: 20px;
+      text-align: center;
+      color: #6c757d;
+      font-style: italic;
+    }
+    @media print {
+      body {
+        padding: 10px;
+      }
+      .section {
+        page-break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🎨 Activity Log Daily Report</h1>
+    <p>${formattedDate}</p>
+  </div>
+
+  <div class="info-section">
+    <h2>Child Information</h2>
+    <div class="info-grid">
+      <div class="info-row">
+        <span class="label">Name:</span>
+        <span>${child.name}</span>
+      </div>
+      <div class="info-row">
+        <span class="label">Date of Birth:</span>
+        <span>${new Date(child.dateOfBirth).toLocaleDateString()}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="summary-cards">
+    <div class="summary-card activities">
+      <div class="count" style="color: #9333ea;">${totalActivities}</div>
+      <div class="label">🎨 Activities</div>
+    </div>
+    <div class="summary-card duration">
+      <div class="count" style="color: #ec4899;">${totalDuration > 0 ? formatDuration(totalDuration) : '-'}</div>
+      <div class="label">⏱️ Total Time</div>
+    </div>
+  </div>
+`;
+
+  // Activities by Category
+  Object.entries(entriesByCategory).forEach(([category, categoryEntries]) => {
+    const style = getCategoryStyle(category);
+    const categoryDuration = categoryEntries.reduce((sum, e) => sum + (e.duration || 0), 0);
+
+    html += `
+  <div class="section">
+    <div class="section-header" style="background: ${style.bg}; color: ${style.text}; border-bottom: 1px solid ${style.border};">
+      ${category} (${categoryEntries.length})${categoryDuration > 0 ? ` - ${formatDuration(categoryDuration)}` : ''}
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Activity</th>
+          <th>Duration</th>
+          <th>Notes</th>
+          <th>Staff</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${categoryEntries.map(entry => `
+        <tr>
+          <td>${formatTime(entry.timestamp)}</td>
+          <td><strong>${entry.activityName}</strong></td>
+          <td>${entry.duration ? entry.duration + 'm' : '-'}</td>
+          <td class="notes-cell">${entry.notes || '-'}</td>
+          <td><strong>${entry.staffInitials}</strong></td>
+        </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  </div>
+`;
+  });
+
+  // Staff Members
+  if (staffMembers && staffMembers.length > 0) {
+    html += `
+  <div class="info-section">
+    <h2>Staff Members</h2>
+    <div class="info-grid">
+      ${staffMembers.map(staff => `
+        <div class="info-row">
+          <span class="label">${staff.initials}:</span>
+          <span>${staff.fullName}</span>
+        </div>
+      `).join('')}
+    </div>
+  </div>
+`;
+  }
+
+  // Footer
+  html += `
+  <div class="footer">
+    <p><strong>${daycareInfo.name}</strong> | License #${daycareInfo.licenseNumber}</p>
+    <p>${daycareInfo.address} | ${daycareInfo.phoneNumber}</p>
+    <p>Generated ${new Date().toLocaleString()}</p>
+  </div>
+</body>
+</html>
+`;
+
+  return html;
 }
