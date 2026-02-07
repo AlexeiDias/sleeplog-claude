@@ -52,9 +52,10 @@ export default function CareLogModal({
   };
 
   const diaperOptions = [
+    { value: 'dry', label: 'Dry' },
     { value: 'wet', label: 'Wet' },
     { value: 'solid', label: 'Solid' },
-    { value: 'both', label: 'Both' },
+    { value: 'both', label: 'Both (Wet & Solid)' },
   ];
 
   function resetForm() {

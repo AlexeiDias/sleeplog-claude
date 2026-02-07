@@ -363,12 +363,12 @@ export default function ActivityCategoryManager({ daycareId }: ActivityCategoryM
                 {category.activities.map((activity) => (
                   <span
                     key={activity}
-                    className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm group"
+                    className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm"
                   >
                     {activity}
                     <button
                       onClick={() => handleDeleteActivity(category.id, activity)}
-                      className="text-gray-400 hover:text-red-600 ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="text-gray-400 hover:text-red-600 ml-1"
                       title="Delete activity"
                     >
                       ×

@@ -1165,6 +1165,7 @@ function formatDuration(minutes: number): string {
 
 function getDiaperEmoji(type: string): string {
   switch (type) {
+    case 'dry': return '✨';
     case 'wet': return '💧';
     case 'solid': return '💩';
     case 'both': return '💧💩';

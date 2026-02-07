@@ -20,10 +20,18 @@ export interface SleepActionData {
   notes?: string;
 }
 
-const positionOptions = [
+const positionOptionsStart = [
   { value: 'Back', label: 'Back' },
   { value: 'Side', label: 'Side' },
   { value: 'Tummy', label: 'Tummy' },
+];
+
+const positionOptionsStop = [
+  { value: 'Back', label: 'Back' },
+  { value: 'Side', label: 'Side' },
+  { value: 'Tummy', label: 'Tummy' },
+  { value: 'Seating', label: 'Seating' },
+  { value: 'Standing', label: 'Standing' },
 ];
 
 const breathingOptions = [
@@ -34,6 +42,7 @@ const breathingOptions = [
 
 const moodOptions = [
   { value: 'Happy', label: 'Happy' },
+  { value: 'Neutral', label: 'Neutral' },
   { value: 'Fussy', label: 'Fussy' },
   { value: 'Upset', label: 'Upset' },
   { value: 'Crying', label: 'Crying' },
@@ -116,7 +125,7 @@ export default function SleepActionModal({
 
         <Select
           label="Sleep Position"
-          options={positionOptions}
+          options={action === 'stop' ? positionOptionsStop : positionOptionsStart}
           value={position}
           onChange={(e) => setPosition(e.target.value)}
           required

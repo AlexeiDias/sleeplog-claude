@@ -101,6 +101,7 @@ export default function CareLogTable({ entries, onEdit }: CareLogTableProps) {
                         entry.diaperType === 'solid' ? 'bg-amber-100 text-amber-800' :
                         'bg-purple-100 text-purple-800'
                       }`}>
+                        {entry.diaperType === 'dry' && '✨'}
                         {entry.diaperType === 'wet' && '💧'} 
                         {entry.diaperType === 'solid' && '💩'} 
                         {entry.diaperType === 'both' && '💧💩'}

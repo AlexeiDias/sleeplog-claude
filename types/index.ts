@@ -57,9 +57,9 @@ export interface Child {
 }
 
 // Sleep Log Entry Types
-export type SleepPosition = 'Back' | 'Side' | 'Tummy';
+export type SleepPosition = 'Back' | 'Side' | 'Tummy' | 'Seating' | 'Standing';
 export type BreathingCondition = 'Normal' | 'Labored' | 'Congested';
-export type Mood = 'Happy' | 'Fussy' | 'Upset' | 'Crying';
+export type Mood = 'Happy' | 'Neutral' | 'Fussy' | 'Upset' | 'Crying';
 export type SleepAction = 'start' | 'check' | 'stop';
 
 export interface SleepLogEntry {
@@ -113,7 +113,7 @@ export interface SignInOutRecord {
 
 // Care Log Type Options
 export type CareLogType = 'diaper' | 'meal' | 'bottle';
-export type DiaperType = 'wet' | 'solid' | 'both';
+export type DiaperType = 'dry' | 'wet' | 'solid' | 'both';
 
 // Care Log Settings (per child)
 export interface CareLogSettings {
