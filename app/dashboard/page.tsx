@@ -9,11 +9,12 @@ import { db } from '@/lib/firebase';
 import Button from '@/components/Button';
 import ChildCard from '@/components/ChildCard';
 import Navbar from '@/components/Navbar';
+import AIAssistant from '@/components/AIAssistant';
 import { Child } from '@/types';
 import Link from 'next/link';
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,6 +35,9 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
+    // Wait for auth to finish loading before redirecting
+    if (authLoading) return;
+
     // Redirect to login if not authenticated
     if (!user) {
       router.push('/login');
@@ -79,9 +83,9 @@ export default function DashboardPage() {
 
     // Cleanup listener on unmount
     return () => unsubscribe();
-  }, [user, router]);
+  }, [user, authLoading, router]);
 
-  if (!user || loading) {
+  if (authLoading || !user || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -288,6 +292,15 @@ export default function DashboardPage() {
           </div>
         )}
       </main>
+
+      {/* AI Assistant */}
+      <AIAssistant 
+        children={children} 
+        onEntryLogged={() => {
+          // Children state is already real-time via onSnapshot
+          console.log('Entry logged via AI Assistant');
+        }} 
+      />
     </div>
   );
 }
