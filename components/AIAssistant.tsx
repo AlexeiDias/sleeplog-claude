@@ -49,35 +49,66 @@ export default function AIAssistant({ children, onEntryLogged }: AIAssistantProp
       setSpeechSupported(!!SpeechRecognition);
       
       if (SpeechRecognition) {
-        recognitionRef.current = new SpeechRecognition();
-        recognitionRef.current.continuous = false;
-        recognitionRef.current.interimResults = true;
-        recognitionRef.current.lang = 'en-US';
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+        recognition.maxAlternatives = 1;
 
-        recognitionRef.current.onresult = (event: any) => {
-          const transcript = Array.from(event.results)
-            .map((result: any) => result[0].transcript)
-            .join('');
-          
-          setInput(transcript);
-          
-          // If this is a final result, stop listening
-          if (event.results[event.results.length - 1].isFinal) {
-            setIsListening(false);
-          }
+        recognition.onstart = () => {
+          console.log('Speech recognition started');
+          setIsListening(true);
         };
 
-        recognitionRef.current.onerror = (event: any) => {
+        recognition.onresult = (event: any) => {
+          let interimTranscript = '';
+          let finalTranscript = '';
+
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript;
+            } else {
+              interimTranscript += transcript;
+            }
+          }
+
+          // Update input with what we have
+          setInput(finalTranscript || interimTranscript);
+        };
+
+        recognition.onerror = (event: any) => {
           console.error('Speech recognition error:', event.error);
           setIsListening(false);
-          if (event.error === 'not-allowed') {
-            addMessage('error', '🎤 Microphone access denied. Please allow microphone access in your browser settings.');
+          
+          switch (event.error) {
+            case 'not-allowed':
+            case 'permission-denied':
+              addMessage('error', '🎤 Microphone access denied. Please allow microphone access in your browser settings and try again.');
+              break;
+            case 'no-speech':
+              addMessage('assistant', '🎤 No speech detected. Tap the microphone and try again.');
+              break;
+            case 'audio-capture':
+              addMessage('error', '🎤 No microphone found. Please check your device settings.');
+              break;
+            case 'network':
+              addMessage('error', '🎤 Network error. Please check your connection.');
+              break;
+            case 'aborted':
+              // User stopped, no message needed
+              break;
+            default:
+              addMessage('error', `🎤 Speech error: ${event.error}`);
           }
         };
 
-        recognitionRef.current.onend = () => {
+        recognition.onend = () => {
+          console.log('Speech recognition ended');
           setIsListening(false);
         };
+
+        recognitionRef.current = recognition;
       }
     }
   }, []);
@@ -120,19 +151,33 @@ export default function AIAssistant({ children, onEntryLogged }: AIAssistantProp
     ]);
   }
 
-  function toggleListening() {
-    if (!recognitionRef.current) return;
+  async function toggleListening() {
+    if (!recognitionRef.current) {
+      addMessage('error', '🎤 Speech recognition not available on this device.');
+      return;
+    }
 
     if (isListening) {
-      recognitionRef.current.stop();
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        console.error('Error stopping recognition:', e);
+      }
       setIsListening(false);
     } else {
-      setInput('');
+      // Request microphone permission first
       try {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+        setInput('');
         recognitionRef.current.start();
-        setIsListening(true);
-      } catch (error) {
-        console.error('Failed to start speech recognition:', error);
+        // Note: setIsListening(true) will be called in onstart handler
+      } catch (error: any) {
+        console.error('Microphone permission error:', error);
+        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+          addMessage('error', '🎤 Microphone access denied. Please allow microphone access in your browser settings.');
+        } else {
+          addMessage('error', `🎤 Could not access microphone: ${error.message}`);
+        }
       }
     }
   }
