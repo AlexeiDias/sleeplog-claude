@@ -45,7 +45,21 @@ export default function AIAssistant({ children, onEntryLogged }: AIAssistantProp
   // Check for speech recognition support
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      // Detect iOS - ALL browsers on iOS use WebKit (Apple requirement)
+      // This means Chrome, Firefox, etc. on iOS all have the same limitations as Safari
+      const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      
+      // Speech recognition doesn't work reliably on iOS (any browser)
+      // So we disable it on iOS and suggest using keyboard dictation
+      if (isIOSDevice) {
+        setSpeechSupported(false);
+        setIsIOS(true);
+        return;
+      }
+      
       setSpeechSupported(!!SpeechRecognition);
       
       if (SpeechRecognition) {
@@ -95,6 +109,9 @@ export default function AIAssistant({ children, onEntryLogged }: AIAssistantProp
             case 'network':
               addMessage('error', '🎤 Network error. Please check your connection.');
               break;
+            case 'service-not-allowed':
+              addMessage('error', '🎤 Speech service not available. Try using keyboard dictation instead (tap 🎤 on your keyboard).');
+              break;
             case 'aborted':
               // User stopped, no message needed
               break;
@@ -125,19 +142,28 @@ export default function AIAssistant({ children, onEntryLogged }: AIAssistantProp
     }
   }, [isOpen]);
 
+  // Detect iOS for messaging (set in main speech recognition useEffect)
+  const [isIOS, setIsIOS] = useState(false);
+
   // Add welcome message when opened
   useEffect(() => {
     if (isOpen && messages.length === 0) {
+      const voiceTip = speechSupported 
+        ? '🎤 Tap the microphone to speak, or type:' 
+        : isIOS 
+          ? '💡 Tip: Tap the input box, then tap 🎤 on your keyboard to dictate!' 
+          : 'Try typing:';
+      
       setMessages([
         {
           id: 'welcome',
           type: 'assistant',
-          text: `👋 Hi! I can help you log entries quickly.\n\n${speechSupported ? '🎤 Tap the microphone to speak, or type:\n\n' : 'Try saying:\n\n'}• "Emma nap started on back"\n• "Wet diaper for Lucas"\n• "Adelaide had 5oz bottle"\n• "Lunch for Emma - oatmeal and bananas"`,
+          text: `👋 Hi! I can help you log entries quickly.\n\n${voiceTip}\n\n• "Emma nap started on back"\n• "Wet diaper for Lucas"\n• "Adelaide had 5oz bottle"\n• "Lunch for Emma - oatmeal and bananas"`,
           timestamp: new Date(),
         },
       ]);
     }
-  }, [isOpen, messages.length, speechSupported]);
+  }, [isOpen, messages.length, speechSupported, isIOS]);
 
   function addMessage(type: Message['type'], text: string) {
     setMessages(prev => [
@@ -549,7 +575,7 @@ export default function AIAssistant({ children, onEntryLogged }: AIAssistantProp
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder={isListening ? 'Listening...' : 'Type or tap 🎤'}
+                placeholder={isListening ? 'Listening...' : isIOS ? 'Type or use keyboard 🎤' : 'Type or tap 🎤'}
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900"
                 disabled={isProcessing}
               />
