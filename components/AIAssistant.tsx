@@ -36,8 +36,51 @@ export default function AIAssistant({ children, onEntryLogged }: AIAssistantProp
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [pendingAction, setPendingAction] = useState<ParsedAction | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<any>(null);
+
+  // Check for speech recognition support
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      setSpeechSupported(!!SpeechRecognition);
+      
+      if (SpeechRecognition) {
+        recognitionRef.current = new SpeechRecognition();
+        recognitionRef.current.continuous = false;
+        recognitionRef.current.interimResults = true;
+        recognitionRef.current.lang = 'en-US';
+
+        recognitionRef.current.onresult = (event: any) => {
+          const transcript = Array.from(event.results)
+            .map((result: any) => result[0].transcript)
+            .join('');
+          
+          setInput(transcript);
+          
+          // If this is a final result, stop listening
+          if (event.results[event.results.length - 1].isFinal) {
+            setIsListening(false);
+          }
+        };
+
+        recognitionRef.current.onerror = (event: any) => {
+          console.error('Speech recognition error:', event.error);
+          setIsListening(false);
+          if (event.error === 'not-allowed') {
+            addMessage('error', '🎤 Microphone access denied. Please allow microphone access in your browser settings.');
+          }
+        };
+
+        recognitionRef.current.onend = () => {
+          setIsListening(false);
+        };
+      }
+    }
+  }, []);
 
   // Auto-scroll to bottom of messages
   useEffect(() => {
@@ -58,12 +101,12 @@ export default function AIAssistant({ children, onEntryLogged }: AIAssistantProp
         {
           id: 'welcome',
           type: 'assistant',
-          text: '👋 Hi! I can help you log entries quickly. Try saying:\n\n• "Emma nap started on back"\n• "Wet diaper for Lucas"\n• "Adelaide had 5oz bottle"\n• "Lunch for Emma - oatmeal and bananas"',
+          text: `👋 Hi! I can help you log entries quickly.\n\n${speechSupported ? '🎤 Tap the microphone to speak, or type:\n\n' : 'Try saying:\n\n'}• "Emma nap started on back"\n• "Wet diaper for Lucas"\n• "Adelaide had 5oz bottle"\n• "Lunch for Emma - oatmeal and bananas"`,
           timestamp: new Date(),
         },
       ]);
     }
-  }, [isOpen, messages.length]);
+  }, [isOpen, messages.length, speechSupported]);
 
   function addMessage(type: Message['type'], text: string) {
     setMessages(prev => [
@@ -77,9 +120,32 @@ export default function AIAssistant({ children, onEntryLogged }: AIAssistantProp
     ]);
   }
 
+  function toggleListening() {
+    if (!recognitionRef.current) return;
+
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      setInput('');
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+      } catch (error) {
+        console.error('Failed to start speech recognition:', error);
+      }
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!input.trim() || isProcessing) return;
+
+    // Stop listening if active
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
 
     const userMessage = input.trim();
     setInput('');
@@ -362,7 +428,9 @@ export default function AIAssistant({ children, onEntryLogged }: AIAssistantProp
               <span className="text-xl">🤖</span>
               <div>
                 <h3 className="font-semibold">AI Assistant</h3>
-                <p className="text-xs opacity-90">Quick entry helper</p>
+                <p className="text-xs opacity-90">
+                  {speechSupported ? 'Voice & text entry' : 'Quick entry helper'}
+                </p>
               </div>
             </div>
             <button
@@ -402,18 +470,41 @@ export default function AIAssistant({ children, onEntryLogged }: AIAssistantProp
                 </div>
               </div>
             )}
+            {isListening && (
+              <div className="flex justify-start">
+                <div className="bg-purple-100 rounded-2xl px-4 py-2 text-sm text-purple-700 border border-purple-200">
+                  <span className="animate-pulse">🎤 Listening...</span>
+                </div>
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </div>
 
           {/* Input */}
           <form onSubmit={handleSubmit} className="p-3 border-t border-gray-200">
             <div className="flex gap-2">
+              {/* Microphone Button */}
+              {speechSupported && (
+                <button
+                  type="button"
+                  onClick={toggleListening}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                    isListening
+                      ? 'bg-red-500 text-white animate-pulse'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                  title={isListening ? 'Stop listening' : 'Start voice input'}
+                >
+                  🎤
+                </button>
+              )}
+              
               <input
                 ref={inputRef}
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Type a command..."
+                placeholder={isListening ? 'Listening...' : 'Type or tap 🎤'}
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900"
                 disabled={isProcessing}
               />
