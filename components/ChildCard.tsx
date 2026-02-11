@@ -12,6 +12,7 @@ import EditChildModal from './EditChildModal';
 import EditFamilyModal from './EditFamilyModal';
 import CareTab from './CareTab';
 import ActivityTab from './ActivityTab';
+import IncidentTab from './IncidentTab';
 import { generateEmailHTML } from '@/utils/reportGenerator';
 import Image from 'next/image';
 
@@ -19,7 +20,7 @@ interface ChildCardProps {
   child: Child;
 }
 
-type TabType = 'sleep' | 'care' | 'activities';
+type TabType = 'sleep' | 'care' | 'activities' | 'incidents';
 
 export default function ChildCard({ child }: ChildCardProps) {
   const { user } = useAuth();
@@ -670,6 +671,17 @@ export default function ChildCard({ child }: ChildCardProps) {
                 🎨 Activities
               </button>
             )}
+            {/* Incidents Tab - Always visible */}
+            <button
+              onClick={() => setActiveTab('incidents')}
+              className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
+                activeTab === 'incidents'
+                  ? 'border-red-600 text-red-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              ⚠️ Incidents
+            </button>
           </div>
         </div>
 
@@ -762,6 +774,11 @@ export default function ChildCard({ child }: ChildCardProps) {
           {/* ACTIVITIES TAB */}
           {activeTab === 'activities' && showActivitiesTab && (
             <ActivityTab child={child} />
+          )}
+
+          {/* INCIDENTS TAB */}
+          {activeTab === 'incidents' && (
+            <IncidentTab child={child} />
           )}
 
           {/* If no tabs are visible */}

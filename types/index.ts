@@ -259,3 +259,62 @@ export const DEFAULT_ACTIVITY_CATEGORIES: ActivityCategory[] = [
     activities: ['Playground', 'Running', 'Ball Games', 'Sandbox', 'Water Play'],
   },
 ];
+
+// ============================================
+// INCIDENT LOG TYPES
+// ============================================
+
+export type IncidentType = 'injury' | 'illness' | 'behavioral' | 'other';
+
+export const INCIDENT_LOCATIONS = [
+  'Classroom',
+  'Playground',
+  'Bathroom',
+  'Nap Area',
+  'Kitchen/Eating Area',
+  'Hallway',
+  'Outdoor Area',
+  'Entry/Exit',
+  'Other',
+];
+
+export const BODY_PARTS = [
+  'Head',
+  'Face',
+  'Neck',
+  'Arm (Left)',
+  'Arm (Right)',
+  'Hand (Left)',
+  'Hand (Right)',
+  'Chest',
+  'Back',
+  'Stomach',
+  'Leg (Left)',
+  'Leg (Right)',
+  'Foot (Left)',
+  'Foot (Right)',
+  'Other',
+];
+
+export interface IncidentLogEntry {
+  id: string;
+  childId: string;
+  type: IncidentType;
+  description: string;
+  timestamp: Date;
+  location: string;
+  bodyPartAffected?: string;
+  firstAidGiven?: string;
+  photoUrl?: string;
+  parentNotified: boolean;
+  parentNotifiedAt?: Date;
+  parentNotifiedMethod?: 'email' | 'phone' | 'in-person';
+  staffInitials: string;
+  staffId: string;
+  staffName?: string;
+  createdAt: Date;
+  lastEditedAt?: Date;
+  lastEditedBy?: string;
+  lastEditedByInitials?: string;
+  deleted?: boolean;
+}

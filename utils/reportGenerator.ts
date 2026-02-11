@@ -1465,3 +1465,249 @@ export function generateActivityLogHTML(reportData: ActivityReportData, daycareI
 
   return html;
 }
+
+// ============================================
+// INCIDENT REPORT HTML GENERATOR
+// ============================================
+
+interface IncidentReportData {
+  child: {
+    name: string;
+    dateOfBirth?: Date;
+  };
+  entries: Array<{
+    id: string;
+    type: string;
+    description: string;
+    timestamp: Date;
+    location: string;
+    bodyPartAffected?: string;
+    firstAidGiven?: string;
+    photoUrl?: string;
+    parentNotified: boolean;
+    parentNotifiedAt?: Date;
+    parentNotifiedMethod?: string;
+    staffInitials: string;
+    staffName?: string;
+  }>;
+  date: Date;
+  daycare?: {
+    name: string;
+    licenseNumber: string;
+    address: string;
+    phoneNumber: string;
+  } | null;
+}
+
+export function generateIncidentReportHTML(data: IncidentReportData): string {
+  const { child, entries, date, daycare } = data;
+
+  const daycareInfo = daycare || {
+    name: 'Daycare',
+    licenseNumber: 'N/A',
+    address: '',
+    phoneNumber: '',
+  };
+
+  function getTypeIcon(type: string): string {
+    switch (type) {
+      case 'injury': return '🤕';
+      case 'illness': return '🤒';
+      case 'behavioral': return '😤';
+      default: return '📝';
+    }
+  }
+
+  function getTypeLabel(type: string): string {
+    switch (type) {
+      case 'injury': return 'Injury';
+      case 'illness': return 'Illness';
+      case 'behavioral': return 'Behavioral';
+      default: return 'Other';
+    }
+  }
+
+  function getTypeColor(type: string): string {
+    switch (type) {
+      case 'injury': return '#dc2626';
+      case 'illness': return '#ea580c';
+      case 'behavioral': return '#9333ea';
+      default: return '#6b7280';
+    }
+  }
+
+  function formatTime(d: Date): string {
+    return d.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  }
+
+  const sortedEntries = [...entries].sort((a, b) => 
+    b.timestamp.getTime() - a.timestamp.getTime()
+  );
+
+  let html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Incident Report - ${child.name}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.5;
+      color: #333;
+      background: #fff;
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 3px solid #dc2626;
+    }
+    .header h1 { color: #dc2626; font-size: 28px; margin-bottom: 5px; }
+    .header .child-name { font-size: 22px; color: #333; margin-bottom: 5px; }
+    .header .date { color: #666; font-size: 14px; }
+    .warning-banner {
+      background: #fef2f2;
+      border: 2px solid #dc2626;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .warning-banner h2 { color: #dc2626; font-size: 18px; }
+    .incident-card {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    .incident-header {
+      padding: 15px;
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .incident-type { font-size: 18px; font-weight: bold; }
+    .incident-time { font-size: 14px; opacity: 0.9; }
+    .incident-body { padding: 15px; background: #f9fafb; }
+    .incident-field { margin-bottom: 12px; }
+    .incident-field label {
+      font-weight: 600;
+      color: #374151;
+      display: block;
+      font-size: 12px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .incident-field p { color: #1f2937; }
+    .incident-meta { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+    .meta-tag { background: #e5e7eb; padding: 4px 10px; border-radius: 4px; font-size: 13px; }
+    .parent-notified {
+      background: #dcfce7;
+      color: #166534;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 13px;
+      margin-top: 10px;
+    }
+    .parent-not-notified {
+      background: #fef3c7;
+      color: #92400e;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 13px;
+      margin-top: 10px;
+    }
+    .staff-info {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #e5e7eb;
+    }
+    .photo { max-width: 200px; border-radius: 8px; margin-top: 10px; }
+    .footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 2px solid #e5e7eb;
+      text-align: center;
+      font-size: 12px;
+      color: #6b7280;
+    }
+    @media print { body { padding: 0; } .incident-card { break-inside: avoid; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>⚠️ Incident Report</h1>
+    <div class="child-name">${child.name}</div>
+    <div class="date">${date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+  </div>
+  <div class="warning-banner">
+    <h2>⚠️ ${sortedEntries.length} Incident${sortedEntries.length !== 1 ? 's' : ''} Reported Today</h2>
+  </div>
+`;
+
+  for (const entry of sortedEntries) {
+    html += `
+  <div class="incident-card">
+    <div class="incident-header" style="background: ${getTypeColor(entry.type)}">
+      <span class="incident-type">${getTypeIcon(entry.type)} ${getTypeLabel(entry.type)}</span>
+      <span class="incident-time">${formatTime(entry.timestamp)}</span>
+    </div>
+    <div class="incident-body">
+      <div class="incident-meta">
+        <span class="meta-tag">📍 ${entry.location}</span>
+        ${entry.bodyPartAffected ? `<span class="meta-tag">🩹 ${entry.bodyPartAffected}</span>` : ''}
+      </div>
+      <div class="incident-field">
+        <label>What Happened</label>
+        <p>${entry.description}</p>
+      </div>
+      ${entry.firstAidGiven ? `
+      <div class="incident-field">
+        <label>First Aid / Action Taken</label>
+        <p>${entry.firstAidGiven}</p>
+      </div>` : ''}
+      ${entry.photoUrl ? `
+      <div class="incident-field">
+        <label>Photo</label>
+        <img src="${entry.photoUrl}" alt="Incident photo" class="photo" />
+      </div>` : ''}
+      ${entry.parentNotified ? `
+      <div class="parent-notified">
+        ✓ Parent notified${entry.parentNotifiedMethod ? ` via ${entry.parentNotifiedMethod}` : ''}${entry.parentNotifiedAt ? ` at ${formatTime(entry.parentNotifiedAt)}` : ''}
+      </div>` : `
+      <div class="parent-not-notified">
+        ⚠️ Parent not yet notified
+      </div>`}
+      <div class="staff-info">
+        Reported by: ${entry.staffName || entry.staffInitials} (${entry.staffInitials})
+      </div>
+    </div>
+  </div>
+`;
+  }
+
+  html += `
+  <div class="footer">
+    <p><strong>${daycareInfo.name}</strong> | License #${daycareInfo.licenseNumber}</p>
+    <p>${daycareInfo.address} | ${daycareInfo.phoneNumber}</p>
+    <p>Generated ${new Date().toLocaleString()}</p>
+  </div>
+</body>
+</html>
+`;
+
+  return html;
+}
