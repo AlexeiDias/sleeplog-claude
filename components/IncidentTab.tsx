@@ -101,29 +101,34 @@ export default function IncidentTab({ child }: IncidentTabProps) {
     setIsSendingEmail(true);
 
     try {
-      const reportHtml = generateIncidentReportHTML({
+      const htmlContent = generateIncidentReportHTML({
         child,
         entries,
         date: now,
         daycare,
       });
 
-      const response = await fetch('/api/send-report', {
+      const response = await fetch('/api/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: parentEmails,
+          to: parentEmails[0],
           subject: `⚠️ Incident Report - ${child.name} - ${now.toLocaleDateString()}`,
-          html: reportHtml,
+          htmlContent,
+          cc: daycare?.email,
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to send email');
+      const result = await response.json();
 
-      alert(`Incident report sent to ${parentEmails.join(', ')}`);
-    } catch (error) {
+      if (result.success) {
+        alert(`Incident report sent to ${parentEmails.join(', ')}`);
+      } else {
+        throw new Error(result.error || 'Failed to send email');
+      }
+    } catch (error: any) {
       console.error('Error sending email:', error);
-      alert('Failed to send email. Please try again.');
+      alert('Failed to send email: ' + error.message);
     } finally {
       setIsSendingEmail(false);
     }

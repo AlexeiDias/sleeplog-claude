@@ -102,11 +102,6 @@ export default function IncidentLogTable({ entries, onEdit }: IncidentLogTablePr
                   <span className="text-xl">{getTypeIcon(entry.type)}</span>
                   <span className="font-semibold">{getTypeLabel(entry.type)}</span>
                   <span className="text-sm opacity-75">• {formatTime(entry.timestamp)}</span>
-                  {entry.parentNotified && (
-                    <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">
-                      ✓ Parent Notified
-                    </span>
-                  )}
                 </div>
 
                 {/* Location & Body Part */}

@@ -1684,13 +1684,6 @@ export function generateIncidentReportHTML(data: IncidentReportData): string {
         <label>Photo</label>
         <img src="${entry.photoUrl}" alt="Incident photo" class="photo" />
       </div>` : ''}
-      ${entry.parentNotified ? `
-      <div class="parent-notified">
-        ✓ Parent notified${entry.parentNotifiedMethod ? ` via ${entry.parentNotifiedMethod}` : ''}${entry.parentNotifiedAt ? ` at ${formatTime(entry.parentNotifiedAt)}` : ''}
-      </div>` : `
-      <div class="parent-not-notified">
-        ⚠️ Parent not yet notified
-      </div>`}
       <div class="staff-info">
         Reported by: ${entry.staffName || entry.staffInitials} (${entry.staffInitials})
       </div>

@@ -42,8 +42,6 @@ export default function EditIncidentLogModal({
   const [location, setLocation] = useState('');
   const [bodyPart, setBodyPart] = useState('');
   const [firstAid, setFirstAid] = useState('');
-  const [parentNotified, setParentNotified] = useState(false);
-  const [notificationMethod, setNotificationMethod] = useState<'email' | 'phone' | 'in-person'>('phone');
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [existingPhotoUrl, setExistingPhotoUrl] = useState<string | null>(null);
@@ -60,8 +58,6 @@ export default function EditIncidentLogModal({
       setLocation(entry.location);
       setBodyPart(entry.bodyPartAffected || '');
       setFirstAid(entry.firstAidGiven || '');
-      setParentNotified(entry.parentNotified);
-      setNotificationMethod(entry.parentNotifiedMethod || 'phone');
       setExistingPhotoUrl(entry.photoUrl || null);
       setPhotoPreview(entry.photoUrl || null);
     }
@@ -150,7 +146,6 @@ export default function EditIncidentLogModal({
         description: description.trim(),
         timestamp: newTimestamp,
         location,
-        parentNotified,
         lastEditedAt: now,
         lastEditedBy: staffId,
         lastEditedByInitials: staffInitials,
@@ -166,13 +161,6 @@ export default function EditIncidentLogModal({
 
       if (photoUrl) {
         updateData.photoUrl = photoUrl;
-      }
-
-      if (parentNotified) {
-        if (!entry.parentNotified) {
-          updateData.parentNotifiedAt = now;
-        }
-        updateData.parentNotifiedMethod = notificationMethod;
       }
 
       const entryRef = doc(db, 'children', childId, 'incidentLogs', dateKey, 'entries', entry.id);
@@ -338,60 +326,6 @@ export default function EditIncidentLogModal({
               >
                 📷 Add Photo
               </button>
-            </div>
-          )}
-        </div>
-
-        {/* Parent Notification */}
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={parentNotified}
-              onChange={(e) => setParentNotified(e.target.checked)}
-              className="w-5 h-5 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
-            />
-            <span className="text-amber-800 font-medium">Parent has been notified</span>
-          </label>
-          
-          {parentNotified && (
-            <div className="mt-3 pl-8">
-              <label className="block text-sm text-amber-700 mb-2">How were they notified?</label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="notificationMethod"
-                    value="phone"
-                    checked={notificationMethod === 'phone'}
-                    onChange={() => setNotificationMethod('phone')}
-                    className="text-amber-600 focus:ring-amber-500"
-                  />
-                  <span className="text-sm text-amber-800">📞 Phone</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="notificationMethod"
-                    value="in-person"
-                    checked={notificationMethod === 'in-person'}
-                    onChange={() => setNotificationMethod('in-person')}
-                    className="text-amber-600 focus:ring-amber-500"
-                  />
-                  <span className="text-sm text-amber-800">👤 In Person</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="notificationMethod"
-                    value="email"
-                    checked={notificationMethod === 'email'}
-                    onChange={() => setNotificationMethod('email')}
-                    className="text-amber-600 focus:ring-amber-500"
-                  />
-                  <span className="text-sm text-amber-800">📧 Email</span>
-                </label>
-              </div>
             </div>
           )}
         </div>
