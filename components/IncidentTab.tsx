@@ -61,6 +61,7 @@ export default function IncidentTab({ child }: IncidentTabProps) {
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const entriesData = snapshot.docs
+        .filter(doc => !doc.data().deleted)
         .map(doc => ({
           id: doc.id,
           ...doc.data(),
@@ -68,8 +69,7 @@ export default function IncidentTab({ child }: IncidentTabProps) {
           createdAt: doc.data().createdAt?.toDate() || new Date(),
           lastEditedAt: doc.data().lastEditedAt?.toDate(),
           parentNotifiedAt: doc.data().parentNotifiedAt?.toDate(),
-        }))
-        .filter(entry => !entry.deleted) as IncidentLogEntry[];
+        })) as IncidentLogEntry[];
 
       setEntries(entriesData);
       setLoading(false);
