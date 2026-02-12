@@ -1,4 +1,4 @@
-//app/page.tsx - Landing Page for LecoLogs
+//app/page.tsx - Landing Page for LogginCare
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -27,7 +27,7 @@ export default function LandingPage() {
     return (
       <div className="min-h-screen bg-gradient-to-b from-amber-50 via-orange-50 to-rose-50 flex items-center justify-center">
         <div className="text-center">
-          <span className="text-4xl">🌻</span>
+          <span className="text-4xl">📋</span>
           <p className="mt-4 text-amber-600">Loading...</p>
         </div>
       </div>
@@ -40,9 +40,9 @@ export default function LandingPage() {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-amber-100">
         <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <span className="text-3xl">🌻</span>
+            <span className="text-3xl">📋</span>
             <span className="text-2xl font-bold text-amber-900" style={{ fontFamily: 'Georgia, serif' }}>
-              LecoLogs
+              LogginCare
             </span>
           </div>
           <div className="flex items-center gap-6">
@@ -290,7 +290,7 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto text-center">
           <div className="text-6xl mb-6">💬</div>
           <blockquote className="text-2xl lg:text-3xl text-white font-medium mb-8 leading-relaxed" style={{ fontFamily: 'Georgia, serif' }}>
-            "I used to spend 30 minutes every evening doing paperwork. Now I just talk to LecoLogs during the day and everything is documented. The parents love the reports!"
+            "I used to spend 30 minutes every evening doing paperwork. Now I just talk to LogginCare during the day and everything is documented. The parents love the reports!"
           </blockquote>
           <div className="flex items-center justify-center gap-4">
             <div className="w-16 h-16 bg-amber-400 rounded-full flex items-center justify-center text-2xl">
@@ -414,10 +414,10 @@ export default function LandingPage() {
           <div className="space-y-6">
             <details className="bg-white rounded-2xl p-6 shadow-sm">
               <summary className="font-semibold text-amber-900 cursor-pointer">
-                Is LecoLogs compliant with California licensing requirements?
+                Is LogginCare compliant with California licensing requirements?
               </summary>
               <p className="mt-4 text-amber-700">
-                Yes! LecoLogs is designed specifically to meet California Title 22 requirements for sleep monitoring (Section 101229), electronic sign-in/out records with digital signatures (Section 101229.1), and record keeping.
+                Yes! LogginCare is designed specifically to meet California Title 22 requirements for sleep monitoring (Section 101229), electronic sign-in/out records with digital signatures (Section 101229.1), and record keeping.
               </p>
             </details>
             
@@ -426,7 +426,7 @@ export default function LandingPage() {
                 Do I need to download an app?
               </summary>
               <p className="mt-4 text-amber-700">
-                Nope! LecoLogs works in any web browser. Just go to lecologs.com on your phone, tablet, or computer. You can add it to your home screen for quick access.
+                Nope! LogginCare works in any web browser. Just go to loggincare.com on your phone, tablet, or computer. You can add it to your home screen for quick access.
               </p>
             </details>
             
@@ -435,7 +435,7 @@ export default function LandingPage() {
                 How does the AI voice assistant work?
               </summary>
               <p className="mt-4 text-amber-700">
-                Just tap the microphone and speak naturally. Say things like "Emma had a wet diaper" or "Lucas finished his bottle, 6 ounces" and LecoLogs will understand and log it for you. On iPhones, you can use the keyboard dictation feature.
+                Just tap the microphone and speak naturally. Say things like "Emma had a wet diaper" or "Lucas finished his bottle, 6 ounces" and LogginCare will understand and log it for you. On iPhones, you can use the keyboard dictation feature.
               </p>
             </details>
             
@@ -487,8 +487,8 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <span className="text-2xl">🌻</span>
-                <span className="text-xl font-bold text-white" style={{ fontFamily: 'Georgia, serif' }}>LecoLogs</span>
+                <span className="text-2xl">📋</span>
+                <span className="text-xl font-bold text-white" style={{ fontFamily: 'Georgia, serif' }}>LogginCare</span>
               </div>
               <p className="text-amber-400 text-sm">
                 Care logging made simple. Built with 💛 in California.
@@ -520,7 +520,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="border-t border-amber-800 pt-8 text-center text-sm text-amber-400">
-            © 2026 LecoLogs. All rights reserved.
+            © 2026 LogginCare. All rights reserved.
           </div>
         </div>
       </footer>
