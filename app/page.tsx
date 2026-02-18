@@ -86,7 +86,7 @@ export default function LandingPage() {
             <div>
               <div className="inline-flex items-center gap-2 bg-amber-100 text-amber-800 px-4 py-2 rounded-full text-sm font-medium mb-6">
                 <span>🎉</span>
-                <span>California Title 22 Compliant</span>
+                <span>Designed for Safe Sleep Documentation</span>
               </div>
               
               <h1 className="text-5xl lg:text-6xl font-bold text-amber-950 leading-tight mb-6" style={{ fontFamily: 'Georgia, serif' }}>
@@ -223,7 +223,7 @@ export default function LandingPage() {
               </div>
               <h3 className="text-xl font-bold text-amber-900 mb-3">Sleep Tracking</h3>
               <p className="text-amber-700">
-                One-tap sleep logging with automatic timers. Track position, breathing, and mood for full compliance.
+                One-tap sleep logging with automatic timers. Track position, breathing, and mood — designed to support safe sleep documentation practices.
               </p>
             </div>
 
@@ -256,7 +256,7 @@ export default function LandingPage() {
               </div>
               <h3 className="text-xl font-bold text-amber-900 mb-3">Digital Sign-In/Out</h3>
               <p className="text-amber-700">
-                Parents sign on the screen with their finger. Electronic signatures stored securely for compliance.
+                Parents sign on the screen with their finger. Electronic signatures stored securely for your records.
               </p>
             </div>
 
@@ -414,10 +414,10 @@ export default function LandingPage() {
           <div className="space-y-6">
             <details className="bg-white rounded-2xl p-6 shadow-sm">
               <summary className="font-semibold text-amber-900 cursor-pointer">
-                Is LogginCare compliant with California licensing requirements?
+                Does LogginCare support childcare documentation requirements?
               </summary>
               <p className="mt-4 text-amber-700">
-                Yes! LogginCare is designed specifically to meet California Title 22 requirements for sleep monitoring (Section 101229), electronic sign-in/out records with digital signatures (Section 101229.1), and record keeping.
+                LogginCare is designed to support safe sleep documentation practices consistent with publicly available guidance from California, Texas, Florida, and New York childcare authorities. This includes sleep monitoring with 15-minute check intervals, position and breathing tracking, electronic sign-in/out with digital signatures, and comprehensive record keeping. Facilities remain responsible for ensuring their own compliance with applicable laws and regulations.
               </p>
             </details>
             

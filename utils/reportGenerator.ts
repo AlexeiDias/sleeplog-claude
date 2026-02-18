@@ -283,7 +283,7 @@ export function generateEmailHTML(reportData: ReportData, daycareInfo: any): str
 
   html += `
   <div class="compliance-note">
-    <strong>📋 Compliance:</strong> Meets CA Title 22, Section 101229 - 15-min checks with position, breathing, staff initials.
+    <strong>📋 Documentation Note:</strong> Designed to support safe sleep documentation practices consistent with publicly available guidance from California, Texas, Florida, and New York childcare authorities. Facilities remain responsible for ensuring their own compliance with applicable laws and regulations.
   </div>
 
   ${staffMembers && staffMembers.length > 0 ? `
@@ -1084,7 +1084,7 @@ export function generateCombinedReportHTML(reportData: CombinedReportData, dayca
   if (sleepEntries.length > 0) {
     html += `
   <div class="compliance-note">
-    <strong>📋 Compliance:</strong> Sleep log meets CA Title 22, Section 101229 requirements.
+    <strong>📋 Documentation Note:</strong> Designed to support safe sleep documentation practices consistent with publicly available guidance from California, Texas, Florida, and New York childcare authorities. Facilities remain responsible for ensuring their own compliance with applicable laws and regulations.
   </div>
 `;
   }
