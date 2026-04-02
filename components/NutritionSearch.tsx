@@ -62,7 +62,7 @@ export default function NutritionSearch({
     onNutritionChange(nutritionData);
   }, [selectedItems, onNutritionChange]);
 
-  // Search — direct client-side call (matches working CalorieCalculator pattern)
+  // Search via our API proxy to avoid CORS
   const searchFood = async () => {
     if (!searchQuery.trim()) return;
 
@@ -72,9 +72,7 @@ export default function NutritionSearch({
 
     try {
       const res = await fetch(
-        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(
-          searchQuery
-        )}&search_simple=1&action=process&json=1&page_size=8&fields=id,product_name,brands,nutriments,image_small_url`
+        `/api/food-search?q=${encodeURIComponent(searchQuery)}`
       );
       const data = await res.json();
 
@@ -84,7 +82,7 @@ export default function NutritionSearch({
             p.product_name && p.nutriments?.['energy-kcal_100g']
         )
         .map((p: any) => ({
-          id: p.id ?? `food_${Date.now()}_${Math.random()}`,
+          id: p.code ?? `food_${Date.now()}_${Math.random()}`,
           name: p.product_name,
           brands: p.brands || undefined,
           calories: Math.round(p.nutriments['energy-kcal_100g'] ?? 0),
@@ -100,7 +98,7 @@ export default function NutritionSearch({
         setSearchError('No results found. Try a different search term.');
       }
     } catch {
-      setSearchError('Search failed. Please check your connection and try again.');
+      setSearchError('Search failed. Please try again.');
     } finally {
       setIsSearching(false);
     }
