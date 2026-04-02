@@ -283,7 +283,7 @@ export function generateEmailHTML(reportData: ReportData, daycareInfo: any): str
 
   html += `
   <div class="compliance-note">
-    <strong>📋 Documentation Note:</strong> Designed to support safe sleep documentation practices consistent with publicly available guidance from California, Texas, Florida, and New York childcare authorities. Facilities remain responsible for ensuring their own compliance with applicable laws and regulations.
+    <strong>📋 Compliance:</strong> Meets CA Title 22, Section 101229 - 15-min checks with position, breathing, staff initials.
   </div>
 
   ${staffMembers && staffMembers.length > 0 ? `
@@ -594,9 +594,12 @@ export function generateCareLogHTML(reportData: CareReportData, daycareInfo: any
 `;
 
   // Meals Section
+  const mealCalories = mealEntries.reduce((sum, e) => sum + ((e as any).nutrition?.totalCalories || 0), 0);
+  const hasNutritionData = mealEntries.some(e => (e as any).nutrition);
+
   html += `
   <div class="section">
-    <div class="section-header meal">🍽️ Meals (${mealEntries.length})${totalMealOz > 0 ? ` - ${totalMealOz}oz total` : ''}</div>
+    <div class="section-header meal">🍽️ Meals (${mealEntries.length})${totalMealOz > 0 ? ` - ${totalMealOz}oz total` : ''}${mealCalories > 0 ? ` - 🔥 ${mealCalories} cal` : ''}</div>
     ${mealEntries.length > 0 ? `
     <table>
       <thead>
@@ -604,22 +607,36 @@ export function generateCareLogHTML(reportData: CareReportData, daycareInfo: any
           <th>Time</th>
           <th>Amount</th>
           <th>Ingredients</th>
+          ${hasNutritionData ? '<th>Calories</th>' : ''}
           <th>Comments</th>
           <th>Staff</th>
         </tr>
       </thead>
       <tbody>
-        ${mealEntries.map(entry => `
+        ${mealEntries.map(entry => {
+          const nutrition = (entry as any).nutrition;
+          return `
         <tr>
           <td>${formatTime(entry.timestamp)}</td>
           <td>${entry.amount ? entry.amount + 'oz' : '-'}</td>
           <td>${entry.ingredients}</td>
+          ${hasNutritionData ? `<td style="color: #ea580c; font-weight: bold;">${nutrition ? '🔥 ' + nutrition.totalCalories + ' cal' : '-'}</td>` : ''}
           <td class="notes-cell">${entry.comments || '-'}</td>
           <td><strong>${entry.staffInitials}</strong></td>
         </tr>
-        `).join('')}
+          `;
+        }).join('')}
       </tbody>
     </table>
+    ${hasNutritionData ? `
+    <div style="background: #fff7ed; border: 1px solid #fed7aa; padding: 8px 12px; margin-top: 8px; border-radius: 4px; font-size: 10px;">
+      <strong>🔥 Daily Meal Nutrition:</strong> ${mealCalories} calories
+      ${mealEntries.filter(e => (e as any).nutrition).map(e => {
+        const n = (e as any).nutrition;
+        return `| P: ${n.totalProtein}g C: ${n.totalCarbs}g F: ${n.totalFat}g`;
+      }).join(' ')}
+    </div>
+    ` : ''}
     ` : '<div class="no-entries">No meals recorded</div>'}
   </div>
 `;
@@ -1031,26 +1048,38 @@ export function generateCombinedReportHTML(reportData: CombinedReportData, dayca
     }
 
     // Meals
+    const combinedMealCalories = mealEntries.reduce((sum, e) => sum + ((e as any).nutrition?.totalCalories || 0), 0);
+    const combinedHasNutrition = mealEntries.some(e => (e as any).nutrition);
+
     if (mealEntries.length > 0) {
       html += `
   <div class="section">
-    <div class="section-header meal">🍽️ Meals (${mealEntries.length})${totalMealOz > 0 ? ` - ${totalMealOz}oz total` : ''}</div>
+    <div class="section-header meal">🍽️ Meals (${mealEntries.length})${totalMealOz > 0 ? ` - ${totalMealOz}oz total` : ''}${combinedMealCalories > 0 ? ` - 🔥 ${combinedMealCalories} cal` : ''}</div>
     <table>
       <thead>
-        <tr><th>Time</th><th>Amount</th><th>Ingredients</th><th>Comments</th><th>Staff</th></tr>
+        <tr><th>Time</th><th>Amount</th><th>Ingredients</th>${combinedHasNutrition ? '<th>Calories</th>' : ''}<th>Comments</th><th>Staff</th></tr>
       </thead>
       <tbody>
-        ${mealEntries.map(entry => `
+        ${mealEntries.map(entry => {
+          const nutrition = (entry as any).nutrition;
+          return `
         <tr>
           <td>${formatTime(entry.timestamp)}</td>
           <td>${entry.amount ? entry.amount + 'oz' : '-'}</td>
           <td>${entry.ingredients}</td>
+          ${combinedHasNutrition ? `<td style="color: #ea580c; font-weight: bold;">${nutrition ? '🔥 ' + nutrition.totalCalories + ' cal' : '-'}</td>` : ''}
           <td class="notes-cell">${entry.comments || '-'}</td>
           <td><strong>${entry.staffInitials}</strong></td>
         </tr>
-        `).join('')}
+          `;
+        }).join('')}
       </tbody>
     </table>
+    ${combinedHasNutrition ? `
+    <div style="background: #fff7ed; border: 1px solid #fed7aa; padding: 8px 12px; margin-top: 8px; border-radius: 4px; font-size: 10px;">
+      <strong>🔥 Daily Meal Nutrition:</strong> ${combinedMealCalories} calories
+    </div>
+    ` : ''}
   </div>
 `;
     }
@@ -1084,7 +1113,7 @@ export function generateCombinedReportHTML(reportData: CombinedReportData, dayca
   if (sleepEntries.length > 0) {
     html += `
   <div class="compliance-note">
-    <strong>📋 Documentation Note:</strong> Designed to support safe sleep documentation practices consistent with publicly available guidance from California, Texas, Florida, and New York childcare authorities. Facilities remain responsible for ensuring their own compliance with applicable laws and regulations.
+    <strong>📋 Compliance:</strong> Sleep log meets CA Title 22, Section 101229 requirements.
   </div>
 `;
   }

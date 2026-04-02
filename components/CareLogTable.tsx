@@ -1,5 +1,5 @@
 //components/CareLogTable.tsx
-import { CareLogEntry, DiaperEntry, MealEntry, BottleEntry } from '@/types';
+import { CareLogEntry, DiaperEntry, MealEntry, BottleEntry, NutritionData } from '@/types';
 import Button from './Button';
 
 interface CareLogTableProps {
@@ -16,6 +16,8 @@ export default function CareLogTable({ entries, onEdit }: CareLogTableProps) {
   // Calculate totals
   const totalBottleOz = bottleEntries.reduce((sum, entry) => sum + entry.amount, 0);
   const totalMealOz = mealEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
+  const totalMealCalories = mealEntries.reduce((sum, entry) => sum + (entry.nutrition?.totalCalories || 0), 0);
+  const hasAnyNutrition = mealEntries.some(entry => entry.nutrition);
 
   function formatTime(date: Date): string {
     return new Date(date).toLocaleTimeString('en-US', {
@@ -60,6 +62,9 @@ export default function CareLogTable({ entries, onEdit }: CareLogTableProps) {
             <div className="text-xs text-gray-600">Meals</div>
             {totalMealOz > 0 && (
               <div className="text-xs text-gray-500 mt-1">({totalMealOz}oz)</div>
+            )}
+            {totalMealCalories > 0 && (
+              <div className="text-xs text-orange-500 font-medium mt-0.5">🔥 {totalMealCalories} cal</div>
             )}
           </div>
           <div>
@@ -150,6 +155,11 @@ export default function CareLogTable({ entries, onEdit }: CareLogTableProps) {
                   • Total: {totalMealOz}oz consumed
                 </span>
               )}
+              {totalMealCalories > 0 && (
+                <span className="text-sm font-normal text-orange-600 ml-2">
+                  • 🔥 {totalMealCalories} cal
+                </span>
+              )}
             </h3>
           </div>
           <div className="overflow-x-auto">
@@ -159,6 +169,9 @@ export default function CareLogTable({ entries, onEdit }: CareLogTableProps) {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Time</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Amount</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Ingredients</th>
+                  {hasAnyNutrition && (
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Calories</th>
+                  )}
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Comments</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Staff</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-600">Action</th>
@@ -178,6 +191,22 @@ export default function CareLogTable({ entries, onEdit }: CareLogTableProps) {
                         {entry.ingredients}
                       </div>
                     </td>
+                    {hasAnyNutrition && (
+                      <td className="px-4 py-3 text-sm whitespace-nowrap">
+                        {entry.nutrition ? (
+                          <div>
+                            <span className="font-semibold text-orange-600">
+                              🔥 {entry.nutrition.totalCalories} cal
+                            </span>
+                            <div className="text-xs text-gray-400 mt-0.5">
+                              P:{entry.nutrition.totalProtein}g C:{entry.nutrition.totalCarbs}g F:{entry.nutrition.totalFat}g
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-sm text-gray-600 max-w-xs">
                       <div className="truncate" title={entry.comments || '-'}>
                         {entry.comments || '-'}

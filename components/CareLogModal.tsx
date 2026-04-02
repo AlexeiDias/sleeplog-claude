@@ -1,12 +1,13 @@
 //components/CareLogModal.tsx
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Modal from './Modal';
 import Input from './Input';
 import Select from './Select';
 import Button from './Button';
-import { CareLogType, DiaperType } from '@/types';
+import NutritionSearch from './NutritionSearch';
+import { CareLogType, DiaperType, NutritionData } from '@/types';
 
 interface CareLogModalProps {
   isOpen: boolean;
@@ -40,6 +41,16 @@ export default function CareLogModal({
   const [mealAmount, setMealAmount] = useState('');
   const [ingredients, setIngredients] = useState('');
   const [mealComments, setMealComments] = useState('');
+  const [nutritionData, setNutritionData] = useState<NutritionData | undefined>(undefined);
+
+  // Stable callbacks for NutritionSearch
+  const handleIngredientsChange = useCallback((value: string) => {
+    setIngredients(value);
+  }, []);
+
+  const handleNutritionChange = useCallback((data: NutritionData | undefined) => {
+    setNutritionData(data);
+  }, []);
 
   // Bottle fields
   const [bottleAmount, setBottleAmount] = useState('');
@@ -64,6 +75,7 @@ export default function CareLogModal({
     setMealAmount('');
     setIngredients('');
     setMealComments('');
+    setNutritionData(undefined);
     setBottleAmount('');
     setBottleComments('');
     setError('');
@@ -122,6 +134,9 @@ export default function CareLogModal({
         }
         if (mealComments.trim()) {
           entryData.comments = mealComments.trim();
+        }
+        if (nutritionData) {
+          entryData.nutrition = nutritionData;
         }
       } else if (logType === 'bottle') {
         entryData.amount = parseFloat(bottleAmount);
@@ -196,21 +211,10 @@ export default function CareLogModal({
             />
             <p className="text-xs text-gray-500 -mt-2">Weight in ounces (oz)</p>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Ingredients <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                value={ingredients}
-                onChange={(e) => setIngredients(e.target.value)}
-                placeholder="Oatmeal, banana, milk..."
-                rows={3}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                maxLength={300}
-              />
-              <p className="mt-1 text-xs text-gray-500">{ingredients.length}/300</p>
-            </div>
+            <NutritionSearch
+              onIngredientsChange={handleIngredientsChange}
+              onNutritionChange={handleNutritionChange}
+            />
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">

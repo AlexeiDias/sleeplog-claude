@@ -152,6 +152,31 @@ export interface MealEntry extends BaseCareLogEntry {
   amount?: number; // Optional weight in oz
   ingredients: string; // Required
   comments?: string;
+  nutrition?: NutritionData; // Optional nutrition info
+}
+
+// ============================================
+// NUTRITION TYPES (Open Food Facts)
+// ============================================
+
+export interface NutritionItem {
+  name: string;
+  calories: number; // kcal per 100g
+  protein: number; // g per 100g
+  carbs: number; // g per 100g
+  fat: number; // g per 100g
+  servingGrams: number; // actual serving size in grams
+  calculatedCalories: number; // calories for this serving
+  productId?: string; // Open Food Facts barcode/id
+  imageUrl?: string; // Product thumbnail
+}
+
+export interface NutritionData {
+  items: NutritionItem[];
+  totalCalories: number;
+  totalProtein: number;
+  totalCarbs: number;
+  totalFat: number;
 }
 
 // Bottle Entry
