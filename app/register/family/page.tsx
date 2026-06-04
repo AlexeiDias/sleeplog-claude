@@ -117,7 +117,7 @@ export default function FamilyRegistrationPage() {
         const childId = `child_${Date.now()}_${child.id}`;
         await setDoc(doc(db, 'children', childId), {
           name: child.name.trim(),
-          dateOfBirth: new Date(child.dateOfBirth),
+          dateOfBirth: new Date(child.dateOfBirth + 'T12:00:00'),
           photoUrl: child.photoUrl || '',
           familyId,
           daycareId: user.daycareId,

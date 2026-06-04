@@ -20,13 +20,19 @@ export default function EditChildModal({ child, isOpen, onClose, onSuccess }: Ed
   const [error, setError] = useState('');
   
   // Handle both Date objects and Firestore Timestamps
+  // Use UTC methods to prevent timezone shift
   const getDateString = (date: any): string => {
+    let d: Date;
     if (date instanceof Date) {
-      return date.toISOString().split('T')[0];
+      d = date;
     } else if (date?.toDate) {
-      return date.toDate().toISOString().split('T')[0];
+      d = date.toDate();
+    } else if (typeof date === 'string') {
+      d = new Date(date);
+    } else {
+      d = new Date();
     }
-    return new Date().toISOString().split('T')[0];
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
   };
   
   const [formData, setFormData] = useState({
@@ -94,7 +100,7 @@ export default function EditChildModal({ child, isOpen, onClose, onSuccess }: Ed
       // Update child document in Firestore
       const updateData: any = {
         name: formData.name,
-        dateOfBirth: new Date(formData.dateOfBirth),
+        dateOfBirth: new Date(formData.dateOfBirth + 'T12:00:00'),
         photoUrl: photoUrl,
       };
 

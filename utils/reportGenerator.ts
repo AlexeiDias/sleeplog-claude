@@ -1,6 +1,19 @@
 //utils/reportGenerator.ts
 import { SleepLogEntry, Child, CareLogEntry, DiaperEntry, MealEntry, BottleEntry, ActivityLogEntry } from '@/types';
 
+// Timezone-safe date formatter for DOB (prevents UTC→local shift)
+function formatDOB(date: any): string {
+  let d: Date;
+  if (date instanceof Date) {
+    d = date;
+  } else if (date?.toDate) {
+    d = date.toDate();
+  } else {
+    d = new Date(date);
+  }
+  return d.toLocaleDateString('en-US', { timeZone: 'UTC' });
+}
+
 export interface ReportData {
   child: Child;
   entries: SleepLogEntry[];
@@ -212,7 +225,7 @@ export function generateEmailHTML(reportData: ReportData, daycareInfo: any): str
       </div>
       <div class="info-row">
         <span class="label">Date of Birth:</span>
-        <span>${new Date(child.dateOfBirth).toLocaleDateString()}</span>
+        <span>${formatDOB(child.dateOfBirth)}</span>
       </div>
       <div class="info-row">
         <span class="label">Total Sleep Today:</span>
@@ -541,7 +554,7 @@ export function generateCareLogHTML(reportData: CareReportData, daycareInfo: any
       </div>
       <div class="info-row">
         <span class="label">Date of Birth:</span>
-        <span>${new Date(child.dateOfBirth).toLocaleDateString()}</span>
+        <span>${formatDOB(child.dateOfBirth)}</span>
       </div>
     </div>
   </div>
@@ -944,7 +957,7 @@ export function generateCombinedReportHTML(reportData: CombinedReportData, dayca
       </div>
       <div class="info-row">
         <span class="label">Date of Birth:</span>
-        <span>${new Date(child.dateOfBirth).toLocaleDateString()}</span>
+        <span>${formatDOB(child.dateOfBirth)}</span>
       </div>
     </div>
   </div>
@@ -1411,7 +1424,7 @@ export function generateActivityLogHTML(reportData: ActivityReportData, daycareI
       </div>
       <div class="info-row">
         <span class="label">Date of Birth:</span>
-        <span>${new Date(child.dateOfBirth).toLocaleDateString()}</span>
+        <span>${formatDOB(child.dateOfBirth)}</span>
       </div>
     </div>
   </div>
