@@ -150,9 +150,14 @@ export default function FamiliesSettingsPage() {
             <h2 className="text-2xl font-bold text-gray-800">Families & Children</h2>
             <p className="text-gray-600 text-sm mt-1">Manage your registered families and children</p>
           </div>
-          <Button variant="primary" onClick={() => router.push('/register/family')}>
-            + Add Family
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => router.push('/settings/archived')}>
+              📦 Archived
+            </Button>
+            <Button variant="primary" onClick={() => router.push('/register/family')}>
+              + Add Family
+            </Button>
+          </div>
         </div>
 
         {error && (
@@ -223,7 +228,9 @@ export default function FamiliesSettingsPage() {
                           return (
                             <div
                               key={child.id}
-                              className="flex justify-between items-center bg-gray-50 p-3 rounded"
+                              className={`flex justify-between items-center p-3 rounded ${
+                                child.archived ? 'bg-gray-100 opacity-60' : 'bg-gray-50'
+                              }`}
                             >
                               <div className="flex items-center gap-3">
                                 {child.photoUrl && (
@@ -234,9 +241,16 @@ export default function FamiliesSettingsPage() {
                                   />
                                 )}
                                 <div>
-                                  <p className="font-medium text-gray-800">{child.name}</p>
+                                  <p className="font-medium text-gray-800">
+                                    {child.name}
+                                    {child.archived && (
+                                      <span className="ml-2 text-xs bg-gray-300 text-gray-700 px-2 py-0.5 rounded-full">
+                                        📦 Archived
+                                      </span>
+                                    )}
+                                  </p>
                                   <p className="text-sm text-gray-600">
-                                    DOB: {new Date(child.dateOfBirth).toLocaleDateString()}
+                                    DOB: {new Date(child.dateOfBirth).toLocaleDateString('en-US', { timeZone: 'UTC' })}
                                     <span className="ml-2 text-xs">
                                       ({ageInMonths} months old)
                                       {!isUnderTwo && (
