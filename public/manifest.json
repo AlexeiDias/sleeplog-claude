@@ -1,7 +1,7 @@
 {
-  "name": "SleepLog - Daycare Sleep Tracking",
-  "short_name": "SleepLog",
-  "description": "Compliant sleep tracking for California daycare centers",
+  "name": "LogginCare - Daycare Management",
+  "short_name": "LogginCare",
+  "description": "Daycare management app designed to support safe sleep documentation and care logging",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
