@@ -52,7 +52,7 @@ export default function ArchivedChildrenPage() {
         dateOfBirth: doc.data().dateOfBirth?.toDate() || new Date(),
         createdAt: doc.data().createdAt?.toDate() || new Date(),
         archivedAt: doc.data().archivedAt?.toDate() || null,
-      })) as Child[];
+      })) as unknown as Child[];
 
       // Fetch family names
       const childrenWithFamilies = await Promise.all(
