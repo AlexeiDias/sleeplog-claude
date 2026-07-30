@@ -52,6 +52,8 @@ export interface Child {
   familyId: string;
   daycareId: string;
   createdAt: Date;
+  archived?: boolean; // Soft-delete: hides child from active views
+  archivedAt?: Date;
   // Care log settings (optional - stored in separate document but referenced here)
   careLogSettings?: CareLogSettings;
 }

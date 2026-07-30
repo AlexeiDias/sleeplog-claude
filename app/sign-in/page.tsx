@@ -73,7 +73,10 @@ export default function SignInPage() {
         createdAt: doc.data().createdAt?.toDate() || new Date(),
       })) as Child[];
 
-      setChildren(childrenData);
+      // Filter out archived children
+      const activeChildren = childrenData.filter(c => !c.archived);
+
+      setChildren(activeChildren);
     } catch (error) {
       console.error('Error loading children:', error);
     } finally {

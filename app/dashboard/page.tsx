@@ -67,14 +67,17 @@ export default function DashboardPage() {
         createdAt: doc.data().createdAt?.toDate() || new Date(),
       })) as Child[];
 
+      // Filter out archived children
+      const activeChildren = childrenData.filter(c => !c.archived);
+
       // Sort children by age (youngest first)
-      childrenData.sort((a, b) => {
+      activeChildren.sort((a, b) => {
         const ageA = getAgeInMonths(a.dateOfBirth);
         const ageB = getAgeInMonths(b.dateOfBirth);
         return ageA - ageB;
       });
 
-      setChildren(childrenData);
+      setChildren(activeChildren);
       setLoading(false);
     }, (error) => {
       console.error('Error fetching children:', error);

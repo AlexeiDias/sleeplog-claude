@@ -18,21 +18,18 @@ interface EditChildModalProps {
 export default function EditChildModal({ child, isOpen, onClose, onSuccess }: EditChildModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+
+  const isArchived = child.archived || false;
   
   // Handle both Date objects and Firestore Timestamps
-  // Use UTC methods to prevent timezone shift
   const getDateString = (date: any): string => {
-    let d: Date;
     if (date instanceof Date) {
-      d = date;
+      return date.toISOString().split('T')[0];
     } else if (date?.toDate) {
-      d = date.toDate();
-    } else if (typeof date === 'string') {
-      d = new Date(date);
-    } else {
-      d = new Date();
+      return date.toDate().toISOString().split('T')[0];
     }
-    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+    return new Date().toISOString().split('T')[0];
   };
   
   const [formData, setFormData] = useState({
@@ -115,6 +112,28 @@ export default function EditChildModal({ child, isOpen, onClose, onSuccess }: Ed
     } catch (err: any) {
       console.error('Error updating child:', err);
       setError(err.message || 'Failed to update child information');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleArchiveToggle = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const newArchived = !isArchived;
+      await updateDoc(doc(db, 'children', child.id), {
+        archived: newArchived,
+        archivedAt: newArchived ? new Date() : null,
+      });
+
+      setShowArchiveConfirm(false);
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      console.error('Error archiving child:', err);
+      setError(err.message || 'Failed to archive child');
     } finally {
       setLoading(false);
     }
@@ -220,6 +239,56 @@ export default function EditChildModal({ child, isOpen, onClose, onSuccess }: Ed
               </div>
             )}
           </div>
+        </div>
+
+        {/* Archive Section - Admin only */}
+        <div className="border-t pt-4 mt-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-3">📦 Archive</h3>
+          {!showArchiveConfirm ? (
+            <button
+              type="button"
+              onClick={() => setShowArchiveConfirm(true)}
+              disabled={loading}
+              className={`w-full p-3 rounded-lg border-2 text-sm font-medium transition ${
+                isArchived
+                  ? 'border-green-300 bg-green-50 text-green-800 hover:bg-green-100'
+                  : 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'
+              }`}
+            >
+              {isArchived ? '♻️ Unarchive this child (restore to active)' : '📦 Archive this child (no longer attending)'}
+            </button>
+          ) : (
+            <div className={`p-4 rounded-lg border-2 ${isArchived ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}`}>
+              <p className={`text-sm font-medium mb-3 ${isArchived ? 'text-green-800' : 'text-red-800'}`}>
+                {isArchived
+                  ? `Are you sure you want to restore ${child.name} to the active children list?`
+                  : `Are you sure you want to archive ${child.name}? They will be hidden from the dashboard, kiosk, and reports. Their historical data will be preserved.`
+                }
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleArchiveToggle}
+                  disabled={loading}
+                  className={`flex-1 py-2 rounded-lg text-sm font-semibold text-white transition ${
+                    isArchived
+                      ? 'bg-green-600 hover:bg-green-700'
+                      : 'bg-red-600 hover:bg-red-700'
+                  }`}
+                >
+                  {loading ? 'Processing...' : isArchived ? 'Yes, Restore' : 'Yes, Archive'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowArchiveConfirm(false)}
+                  disabled={loading}
+                  className="flex-1 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm font-semibold transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Buttons */}
