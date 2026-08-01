@@ -7,44 +7,38 @@ service cloud.firestore {
     // HELPER FUNCTIONS
     // ============================================
 
-    // Check if user is authenticated
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Get user document data
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    // Check if user belongs to a specific daycare
     function belongsToDaycare(daycareId) {
       return isAuthenticated() && getUserData().daycareId == daycareId;
     }
 
-    // Check if user is admin of a specific daycare
     function isAdminOfDaycare(daycareId) {
       return isAuthenticated() && getUserData().daycareId == daycareId && getUserData().role == 'admin';
     }
 
-    // Check if user is admin
     function isAdmin() {
       return isAuthenticated() && getUserData().role == 'admin';
     }
 
-    // Check if user is staff or admin of a specific daycare
-    function isStaffOrAdmin(daycareId) {
-      return belongsToDaycare(daycareId);
+    function getChildDaycareId(childId) {
+      return get(/databases/$(database)/documents/children/$(childId)).data.daycareId;
     }
 
     // ============================================
     // DAYCARES
     // ============================================
     match /daycares/{daycareId} {
-      // Staff and admin of the daycare can read
-      allow read: if belongsToDaycare(daycareId);
+      // Any authenticated user can read (kiosk setup, registration, reports)
+      allow read: if isAuthenticated();
 
-      // Only the daycare admin can update settings
+      // Only the daycare admin can update
       allow update: if isAdminOfDaycare(daycareId);
 
       // Authenticated users can create (registration flow)
@@ -52,24 +46,33 @@ service cloud.firestore {
 
       // Only admin can delete
       allow delete: if isAdminOfDaycare(daycareId);
+
+      // --- ACTIVITY SETTINGS (per daycare) ---
+      // Path: daycares/{daycareId}/activitySettings/config
+      match /activitySettings/{docId} {
+        allow read: if isAuthenticated() && belongsToDaycare(daycareId);
+        allow create, update: if isAuthenticated() && belongsToDaycare(daycareId);
+        allow delete: if isAdminOfDaycare(daycareId);
+      }
     }
 
     // ============================================
     // USERS
     // ============================================
     match /users/{userId} {
-      // Users can read their own document
+      // Users can read their own doc
       // Admin can read any user in their daycare
+      // Staff can read other users in their daycare (for staff initials/names in logs)
       allow read: if isAuthenticated() && (
         request.auth.uid == userId ||
-        (isAdmin() && resource.data.daycareId == getUserData().daycareId)
+        getUserData().daycareId == resource.data.daycareId
       );
 
-      // Users can create their own document (registration)
+      // Users can create their own document (registration + staff invite)
       allow create: if isAuthenticated() && request.auth.uid == userId;
 
       // Users can update their own profile
-      // Admin can update staff in their daycare (but not change role to admin)
+      // Admin can update staff in their daycare
       allow update: if isAuthenticated() && (
         request.auth.uid == userId ||
         isAdminOfDaycare(resource.data.daycareId)
@@ -83,8 +86,9 @@ service cloud.firestore {
     // FAMILIES
     // ============================================
     match /families/{familyId} {
-      // Staff and admin of the daycare can read
-      allow read: if isAuthenticated() && belongsToDaycare(resource.data.daycareId);
+      // Authenticated users in the daycare can read
+      // Public read also needed for kiosk sign-in (parent info)
+      allow read: if true;
 
       // Staff and admin can create families in their daycare
       allow create: if isAuthenticated() && belongsToDaycare(request.resource.data.daycareId);
@@ -100,8 +104,9 @@ service cloud.firestore {
     // CHILDREN
     // ============================================
     match /children/{childId} {
-      // Staff and admin of the daycare can read
-      allow read: if isAuthenticated() && belongsToDaycare(resource.data.daycareId);
+      // Public read needed for kiosk sign-in (list children)
+      // Authenticated daycare staff can also read
+      allow read: if true;
 
       // Staff and admin can create children in their daycare
       allow create: if isAuthenticated() && belongsToDaycare(request.resource.data.daycareId);
@@ -112,121 +117,76 @@ service cloud.firestore {
       // Only admin can delete
       allow delete: if isAuthenticated() && isAdminOfDaycare(resource.data.daycareId);
 
+      // --- CARE LOG SETTINGS ---
+      // Path: children/{childId}/settings/careLogs
+      match /settings/{docId} {
+        allow read: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
+        allow create, update: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
+        allow delete: if isAdminOfDaycare(getChildDaycareId(childId));
+      }
+
       // --- SLEEP LOGS ---
+      // Path: children/{childId}/sleepLogs/{dateKey}/entries/{entryId}
       match /sleepLogs/{dateKey}/entries/{entryId} {
-        allow read: if isAuthenticated() && belongsToDaycare(
-          get(/databases/$(database)/documents/children/$(childId)).data.daycareId
-        );
-
-        allow create: if isAuthenticated() && belongsToDaycare(
-          get(/databases/$(database)/documents/children/$(childId)).data.daycareId
-        );
-
-        allow update: if isAuthenticated() && belongsToDaycare(
-          get(/databases/$(database)/documents/children/$(childId)).data.daycareId
-        );
-
-        // Only admin can delete sleep logs
-        allow delete: if isAuthenticated() && isAdminOfDaycare(
-          get(/databases/$(database)/documents/children/$(childId)).data.daycareId
-        );
+        allow read: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
+        allow create: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
+        allow update: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
+        allow delete: if isAdminOfDaycare(getChildDaycareId(childId));
       }
 
       // --- ACTIVE SLEEP ---
+      // Path: children/{childId}/activeSleep/current
       match /activeSleep/{docId} {
-        allow read, write: if isAuthenticated() && belongsToDaycare(
-          get(/databases/$(database)/documents/children/$(childId)).data.daycareId
-        );
+        allow read, write: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
       }
 
       // --- CARE LOGS ---
+      // Path: children/{childId}/careLogs/{dateKey}/entries/{entryId}
       match /careLogs/{dateKey}/entries/{entryId} {
-        allow read: if isAuthenticated() && belongsToDaycare(
-          get(/databases/$(database)/documents/children/$(childId)).data.daycareId
-        );
-
-        allow create: if isAuthenticated() && belongsToDaycare(
-          get(/databases/$(database)/documents/children/$(childId)).data.daycareId
-        );
-
-        allow update: if isAuthenticated() && belongsToDaycare(
-          get(/databases/$(database)/documents/children/$(childId)).data.daycareId
-        );
-
-        // Only admin can delete care logs
-        allow delete: if isAuthenticated() && isAdminOfDaycare(
-          get(/databases/$(database)/documents/children/$(childId)).data.daycareId
-        );
+        allow read: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
+        allow create: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
+        allow update: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
+        allow delete: if isAdminOfDaycare(getChildDaycareId(childId));
       }
 
       // --- ACTIVITY LOGS ---
+      // Path: children/{childId}/activityLogs/{dateKey}/entries/{entryId}
       match /activityLogs/{dateKey}/entries/{entryId} {
-        allow read: if isAuthenticated() && belongsToDaycare(
-          get(/databases/$(database)/documents/children/$(childId)).data.daycareId
-        );
-
-        allow create: if isAuthenticated() && belongsToDaycare(
-          get(/databases/$(database)/documents/children/$(childId)).data.daycareId
-        );
-
-        allow update: if isAuthenticated() && belongsToDaycare(
-          get(/databases/$(database)/documents/children/$(childId)).data.daycareId
-        );
-
-        // Only admin can delete activity logs
-        allow delete: if isAuthenticated() && isAdminOfDaycare(
-          get(/databases/$(database)/documents/children/$(childId)).data.daycareId
-        );
+        allow read: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
+        allow create: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
+        allow update: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
+        allow delete: if isAdminOfDaycare(getChildDaycareId(childId));
       }
 
       // --- INCIDENT LOGS ---
+      // Path: children/{childId}/incidentLogs/{dateKey}/entries/{entryId}
       match /incidentLogs/{dateKey}/entries/{entryId} {
-        allow read: if isAuthenticated() && belongsToDaycare(
-          get(/databases/$(database)/documents/children/$(childId)).data.daycareId
-        );
-
-        allow create: if isAuthenticated() && belongsToDaycare(
-          get(/databases/$(database)/documents/children/$(childId)).data.daycareId
-        );
-
-        allow update: if isAuthenticated() && belongsToDaycare(
-          get(/databases/$(database)/documents/children/$(childId)).data.daycareId
-        );
-
-        // Only admin can delete incident logs
-        allow delete: if isAuthenticated() && isAdminOfDaycare(
-          get(/databases/$(database)/documents/children/$(childId)).data.daycareId
-        );
+        allow read: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
+        allow create: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
+        allow update: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
+        allow delete: if isAdminOfDaycare(getChildDaycareId(childId));
       }
 
       // --- SIGNATURES ---
+      // Path: children/{childId}/signatures/{date}
       match /signatures/{date} {
-        allow read: if isAuthenticated() && belongsToDaycare(
-          get(/databases/$(database)/documents/children/$(childId)).data.daycareId
-        );
-
-        allow create, update: if isAuthenticated() && belongsToDaycare(
-          get(/databases/$(database)/documents/children/$(childId)).data.daycareId
-        );
-
-        // Only admin can delete signatures
-        allow delete: if isAuthenticated() && isAdminOfDaycare(
-          get(/databases/$(database)/documents/children/$(childId)).data.daycareId
-        );
+        allow read: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
+        allow create, update: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
+        allow delete: if isAdminOfDaycare(getChildDaycareId(childId));
       }
     }
 
     // ============================================
-    // SIGN-IN/OUT (Kiosk mode - public create)
+    // SIGN-IN/OUT (Kiosk mode)
     // ============================================
     match /signInOut/{signInOutId} {
-      // Public create for kiosk mode
+      // Public read for kiosk (check sign-in status)
+      allow read: if true;
+
+      // Public create for kiosk
       allow create: if true;
 
-      // Only authenticated staff/admin can read
-      allow read: if isAuthenticated();
-
-      // Sign-in/out records are immutable - no updates or deletes
+      // Immutable — no updates or deletes by anyone
       allow update, delete: if false;
     }
 
@@ -234,13 +194,11 @@ service cloud.firestore {
     // INVITATIONS
     // ============================================
     match /invitations/{invitationId} {
-      // Anyone authenticated can read (to check their invitation)
+      // Any authenticated user can read (to check their invitation)
       allow read: if isAuthenticated();
 
-      // Only admin can create invitations for their daycare
+      // Only admin can create/manage invitations
       allow create: if isAdmin();
-
-      // Only admin can update/delete invitations
       allow update, delete: if isAdmin();
     }
   }
