@@ -49,6 +49,16 @@ service cloud.firestore {
         : '';
     }
 
+    // An invite may be redeemed while pending, or re-redeemed by the same
+    // account that already accepted it (e.g. their user document was deleted
+    // and recreated). A 'revoked' invite is never usable — this is what makes
+    // admin revocation stick.
+    function inviteUsable(inviteId) {
+      return get(/databases/$(database)/documents/parentInvites/$(inviteId)).data.status == 'pending'
+             || (get(/databases/$(database)/documents/parentInvites/$(inviteId)).data.status == 'accepted'
+                 && get(/databases/$(database)/documents/parentInvites/$(inviteId)).data.acceptedBy == request.auth.uid);
+    }
+
     // True only for a parent whose own familyId matches the child's familyId.
     // This is what scopes a parent to their own children rather than to the
     // whole daycare — parents must never be granted access via daycareId.
@@ -115,10 +125,13 @@ service cloud.firestore {
             && isAdminOfDaycare(request.resource.data.daycareId))
 
         // 3. Parent redeeming an invite. familyId and daycareId must be copied
-        //    from the invite rather than supplied freely.
+        //    from the invite rather than supplied freely, and the invite must
+        //    still be usable — a revoked invite cannot rebuild access, even
+        //    for the account that originally redeemed it.
         || (request.auth.uid == userId
             && request.resource.data.role == 'parent'
             && exists(/databases/$(database)/documents/parentInvites/$(authEmail()))
+            && inviteUsable(authEmail())
             && request.resource.data.familyId ==
                  get(/databases/$(database)/documents/parentInvites/$(authEmail())).data.familyId
             && request.resource.data.daycareId ==

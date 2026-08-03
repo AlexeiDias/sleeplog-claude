@@ -71,11 +71,20 @@ export default function ParentFinishPage() {
 
         const invite = inviteSnap.data();
 
-        if (invite.status !== 'pending' && invite.acceptedBy !== uid) {
+        // A revoked invite is never usable, even by the account that
+        // originally redeemed it — otherwise revoking access would only last
+        // until the parent requested a fresh magic link.
+        const usable =
+          invite.status === 'pending' ||
+          (invite.status === 'accepted' && invite.acceptedBy === uid);
+
+        if (!usable) {
           await signOut(auth);
           setPhase('error');
           setError(
-            'This invitation has already been used. Please ask your daycare to send a new one.'
+            invite.status === 'revoked'
+              ? 'Your access to this portal has been removed. Please contact your daycare.'
+              : 'This invitation has already been used. Please ask your daycare to send a new one.'
           );
           return;
         }
