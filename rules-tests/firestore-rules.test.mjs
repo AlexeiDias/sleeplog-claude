@@ -14,7 +14,10 @@ import {
 } from '@firebase/rules-unit-testing';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
-import { doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import {
+  doc, getDoc, setDoc, updateDoc, deleteDoc,
+  collection, query, where, getDocs,
+} from 'firebase/firestore';
 
 // Resolved relative to THIS file, not the working directory — the emulator is
 // launched from the repo root so that firebase-tools can see firestore.rules.
@@ -287,6 +290,45 @@ await check('parent-scope', 'staff CAN still write child logs (no regression)', 
   setDoc(doc(as('staff_uid', 'staff@lsd.com'),
     'children', CHILD_A, 'careLogs', DATE, 'entries', 'staff_entry'),
     { type: 'bottle', amount: 4, staffInitials: 'ST' }));
+
+// ─────────────────────────────────────────────────────────────
+// LIST / query rules
+//
+// Firestore evaluates list rules against the QUERY, not its results: if the
+// query's constraints cannot prove every possible match is readable, the whole
+// query is denied — even when it would match nothing. get() assertions cannot
+// catch this, which is how the Parent Access section shipped broken.
+// ─────────────────────────────────────────────────────────────
+await check('list', 'admin CAN list users constrained by daycareId', 'allow', () =>
+  getDocs(query(collection(as('admin_uid', 'admin@lsd.com'), 'users'),
+    where('daycareId', '==', DAYCARE))));
+
+await check('list', 'admin CANNOT list users by familyId alone', 'deny', () =>
+  getDocs(query(collection(as('admin_uid', 'admin@lsd.com'), 'users'),
+    where('familyId', '==', FAMILY_A))));
+
+await check('list', 'admin CAN list parentInvites constrained by daycareId', 'allow', () =>
+  getDocs(query(collection(as('admin_uid', 'admin@lsd.com'), 'parentInvites'),
+    where('daycareId', '==', DAYCARE))));
+
+await check('list', 'admin CANNOT list parentInvites by familyId alone', 'deny', () =>
+  getDocs(query(collection(as('admin_uid', 'admin@lsd.com'), 'parentInvites'),
+    where('familyId', '==', FAMILY_A))));
+
+await check('list', 'parent CANNOT list parentInvites', 'deny', () =>
+  getDocs(query(collection(as('parentA_uid', 'parenta@x.com'), 'parentInvites'),
+    where('daycareId', '==', DAYCARE))));
+
+await check('list', 'parent CANNOT list all users in the daycare', 'deny', () =>
+  getDocs(query(collection(as('parentA_uid', 'parenta@x.com'), 'users'),
+    where('daycareId', '==', DAYCARE))));
+
+await check('list', 'parent CAN still get their own invite', 'allow', () =>
+  getDoc(doc(as('p_invited', 'invited@x.com'), 'parentInvites', 'invited@x.com')));
+
+await check('list', 'parent CAN list their own family children', 'allow', () =>
+  getDocs(query(collection(as('parentA_uid', 'parenta@x.com'), 'children'),
+    where('familyId', '==', FAMILY_A))));
 
 // ─────────────────────────────────────────────────────────────
 // Kiosk paths that must stay public

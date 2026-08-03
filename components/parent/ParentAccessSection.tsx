@@ -46,33 +46,38 @@ export default function ParentAccessSection({
     setLoading(true);
     setError('');
     try {
-      // Single-field equality filters only. A compound query here
-      // (familyId + role) can require a composite index that does not exist in
-      // this project, and the resulting failure looks identical to a rules
-      // denial. Role is filtered client-side instead.
+      // Both queries MUST be constrained by daycareId.
+      //
+      // Firestore checks list rules against the query, not its results. The
+      // rules authorize by daycareId, so a query filtered only on familyId
+      // cannot be proven safe and is rejected outright — even for a family
+      // with no parents at all. Filtering by familyId happens client-side.
+      // This mirrors the staff page, which queries users the same way.
       const [userSnap, inviteSnap] = await Promise.all([
         getDocs(query(
           collection(db, 'users'),
-          where('familyId', '==', family.id)
+          where('daycareId', '==', family.daycareId)
         )),
         getDocs(query(
           collection(db, 'parentInvites'),
-          where('familyId', '==', family.id)
+          where('daycareId', '==', family.daycareId)
         )),
       ]);
 
       setParents(userSnap.docs
-        .filter((d) => d.data().role === 'parent')
+        .filter((d) => d.data().role === 'parent' && d.data().familyId === family.id)
         .map((d) => ({
           uid: d.id,
           email: d.data().email || '(no email on record)',
         })));
 
-      setInvites(inviteSnap.docs.map((d) => ({
-        id: d.id,
-        email: d.data().email || d.id,
-        status: d.data().status || 'pending',
-      })));
+      setInvites(inviteSnap.docs
+        .filter((d) => d.data().familyId === family.id)
+        .map((d) => ({
+          id: d.id,
+          email: d.data().email || d.id,
+          status: d.data().status || 'pending',
+        })));
     } catch (err) {
       console.error('Error loading parent access:', err);
       // Surface the real Firestore code — "permission-denied" and
@@ -87,7 +92,7 @@ export default function ParentAccessSection({
     } finally {
       setLoading(false);
     }
-  }, [family.id]);
+  }, [family.id, family.daycareId]);
 
   useEffect(() => {
     load();
