@@ -97,12 +97,18 @@ service cloud.firestore {
     // USERS
     // ============================================
     match /users/{userId} {
-      // Users can read their own doc
-      // Admin can read any user in their daycare
-      // Staff can read other users in their daycare (for staff initials/names in logs)
+      // Users can read their own doc.
+      // Admin and staff can read other users in their own daycare (staff
+      // initials and names are shown against log entries).
+      //
+      // Parents are deliberately excluded from the second branch. They carry a
+      // daycareId like everyone else, so without the role check a parent could
+      // list every account in the daycare — staff names and emails, and every
+      // other parent. They only ever need their own document.
       allow read: if isAuthenticated() && (
         request.auth.uid == userId ||
-        getUserData().daycareId == resource.data.daycareId
+        (getUserData().role in ['admin', 'staff']
+         && getUserData().daycareId == resource.data.daycareId)
       );
 
       // Account creation. Each branch below is a specific, authorized path —
@@ -285,10 +291,23 @@ service cloud.firestore {
     // access. Anyone can request a magic link for their own address, so the
     // invite is the gate.
     match /parentInvites/{inviteEmail} {
-      // The invited parent reads their own invite to complete sign-in.
-      // Admins read invites belonging to their own daycare.
-      allow read: if (isAuthenticated() && authEmail() == inviteEmail)
-                     || (resource != null && isAdminOfDaycare(resource.data.daycareId));
+      // 'get' and 'list' are split deliberately.
+      //
+      // Firestore evaluates list rules against the QUERY, not the documents it
+      // returns — if the query's constraints cannot prove every possible match
+      // is readable, the whole query is denied. A condition like
+      // "authEmail() == inviteEmail" can never be proven from query
+      // constraints, so leaving it in the list path denies admin queries even
+      // when they would match nothing.
+      //
+      // get: the invited parent reads their own invite to complete sign-in;
+      //      an admin reads any invite in their daycare.
+      allow get: if (isAuthenticated() && authEmail() == inviteEmail)
+                    || (resource != null && isAdminOfDaycare(resource.data.daycareId));
+
+      // list: admins only, and callers must constrain the query by daycareId
+      //       (see ParentAccessSection) so this is provable.
+      allow list: if isAdminOfDaycare(resource.data.daycareId);
 
       // Only an admin of the same daycare may issue an invite, and the document
       // ID must match the email it claims, so it can be found at sign-in.
