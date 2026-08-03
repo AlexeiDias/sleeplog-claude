@@ -46,11 +46,14 @@ export default function ParentAccessSection({
     setLoading(true);
     setError('');
     try {
+      // Single-field equality filters only. A compound query here
+      // (familyId + role) can require a composite index that does not exist in
+      // this project, and the resulting failure looks identical to a rules
+      // denial. Role is filtered client-side instead.
       const [userSnap, inviteSnap] = await Promise.all([
         getDocs(query(
           collection(db, 'users'),
-          where('familyId', '==', family.id),
-          where('role', '==', 'parent')
+          where('familyId', '==', family.id)
         )),
         getDocs(query(
           collection(db, 'parentInvites'),
@@ -58,10 +61,12 @@ export default function ParentAccessSection({
         )),
       ]);
 
-      setParents(userSnap.docs.map((d) => ({
-        uid: d.id,
-        email: d.data().email || '(no email on record)',
-      })));
+      setParents(userSnap.docs
+        .filter((d) => d.data().role === 'parent')
+        .map((d) => ({
+          uid: d.id,
+          email: d.data().email || '(no email on record)',
+        })));
 
       setInvites(inviteSnap.docs.map((d) => ({
         id: d.id,
@@ -70,7 +75,15 @@ export default function ParentAccessSection({
       })));
     } catch (err) {
       console.error('Error loading parent access:', err);
-      setError('Could not load parent access for this family.');
+      // Surface the real Firestore code — "permission-denied" and
+      // "failed-precondition" (missing index) need completely different fixes,
+      // and a generic message hides which one happened.
+      const code = (err as { code?: string })?.code;
+      const message = (err as { message?: string })?.message;
+      setError(
+        `Could not load parent access for this family.${code ? ` (${code})` : ''}` +
+        `${message ? ` — ${message}` : ''}`
+      );
     } finally {
       setLoading(false);
     }
