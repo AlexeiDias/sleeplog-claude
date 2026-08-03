@@ -87,8 +87,22 @@ service cloud.firestore {
         getUserData().daycareId == resource.data.daycareId
       );
 
-      // Users can create their own document (registration + staff invite)
-      allow create: if isAuthenticated() && request.auth.uid == userId;
+      // Users can create their own document (registration + staff invite).
+      // Staff/admin registration is unchanged. A 'parent' document may only be
+      // created when a matching invite exists for the signed-in email address,
+      // and familyId/daycareId must be copied from that invite — otherwise any
+      // signed-in user could grant themselves access to any family's records.
+      allow create: if isAuthenticated() && request.auth.uid == userId && (
+        request.resource.data.role in ['admin', 'staff'] ||
+        (
+          request.resource.data.role == 'parent' &&
+          exists(/databases/$(database)/documents/parentInvites/$(authEmail())) &&
+          request.resource.data.familyId ==
+            get(/databases/$(database)/documents/parentInvites/$(authEmail())).data.familyId &&
+          request.resource.data.daycareId ==
+            get(/databases/$(database)/documents/parentInvites/$(authEmail())).data.daycareId
+        )
+      );
 
       // Users can update their own profile
       // Admin can update staff in their daycare
