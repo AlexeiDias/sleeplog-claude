@@ -1,6 +1,6 @@
 //types/index.ts
 // User Roles
-export type UserRole = 'admin' | 'staff';
+export type UserRole = 'admin' | 'staff' | 'parent';
 
 // User Type
 export interface User {
@@ -11,7 +11,24 @@ export interface User {
   initials?: string;
   firstName?: string;
   lastName?: string;
+  familyId?: string; // Parents only: links the parent to their family
   createdAt: Date;
+}
+
+// Parent Invite Type
+// Stored at parentInvites/{lowercased email}. Created by an admin, consumed
+// when the parent completes magic-link sign-in. This document — not the email
+// link itself — is what grants parent access.
+export interface ParentInvite {
+  email: string;
+  familyId: string;
+  daycareId: string;
+  invitedBy: string; // uid of the admin who sent it
+  invitedByName?: string;
+  status: 'pending' | 'accepted';
+  createdAt: Date;
+  acceptedAt?: Date;
+  acceptedBy?: string; // uid assigned at first sign-in
 }
 
 // Daycare Type

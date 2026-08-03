@@ -49,6 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           initials: userData.initials,
           firstName: userData.firstName,
           lastName: userData.lastName,
+          familyId: userData.familyId, // Parents only
           createdAt: userData.createdAt?.toDate() || new Date(),
         };
       }

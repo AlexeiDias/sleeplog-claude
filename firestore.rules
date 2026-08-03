@@ -31,6 +31,25 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/children/$(childId)).data.daycareId;
     }
 
+    // --- PARENTS PORTAL HELPERS ---
+
+    // The signed-in user's email, lowercased, or '' when absent.
+    // Parent invites are keyed by lowercased email.
+    function authEmail() {
+      return isAuthenticated() && request.auth.token.email != null
+        ? request.auth.token.email.lower()
+        : '';
+    }
+
+    // True only for a parent whose own familyId matches the child's familyId.
+    // This is what scopes a parent to their own children rather than to the
+    // whole daycare — parents must never be granted access via daycareId.
+    function isParentOfChild(childId) {
+      return isAuthenticated() &&
+             getUserData().role == 'parent' &&
+             getUserData().familyId == get(/databases/$(database)/documents/children/$(childId)).data.familyId;
+    }
+
     // ============================================
     // DAYCARES
     // ============================================
@@ -68,8 +87,22 @@ service cloud.firestore {
         getUserData().daycareId == resource.data.daycareId
       );
 
-      // Users can create their own document (registration + staff invite)
-      allow create: if isAuthenticated() && request.auth.uid == userId;
+      // Users can create their own document (registration + staff invite).
+      // Staff/admin registration is unchanged. A 'parent' document may only be
+      // created when a matching invite exists for the signed-in email address,
+      // and familyId/daycareId must be copied from that invite — otherwise any
+      // signed-in user could grant themselves access to any family's records.
+      allow create: if isAuthenticated() && request.auth.uid == userId && (
+        request.resource.data.role in ['admin', 'staff'] ||
+        (
+          request.resource.data.role == 'parent' &&
+          exists(/databases/$(database)/documents/parentInvites/$(authEmail())) &&
+          request.resource.data.familyId ==
+            get(/databases/$(database)/documents/parentInvites/$(authEmail())).data.familyId &&
+          request.resource.data.daycareId ==
+            get(/databases/$(database)/documents/parentInvites/$(authEmail())).data.daycareId
+        )
+      );
 
       // Users can update their own profile
       // Admin can update staff in their daycare
@@ -128,7 +161,8 @@ service cloud.firestore {
       // --- SLEEP LOGS ---
       // Path: children/{childId}/sleepLogs/{dateKey}/entries/{entryId}
       match /sleepLogs/{dateKey}/entries/{entryId} {
-        allow read: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
+        allow read: if (isAuthenticated() && belongsToDaycare(getChildDaycareId(childId)))
+                       || isParentOfChild(childId);
         allow create: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
         allow update: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
         allow delete: if isAdminOfDaycare(getChildDaycareId(childId));
@@ -143,7 +177,8 @@ service cloud.firestore {
       // --- CARE LOGS ---
       // Path: children/{childId}/careLogs/{dateKey}/entries/{entryId}
       match /careLogs/{dateKey}/entries/{entryId} {
-        allow read: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
+        allow read: if (isAuthenticated() && belongsToDaycare(getChildDaycareId(childId)))
+                       || isParentOfChild(childId);
         allow create: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
         allow update: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
         allow delete: if isAdminOfDaycare(getChildDaycareId(childId));
@@ -152,7 +187,8 @@ service cloud.firestore {
       // --- ACTIVITY LOGS ---
       // Path: children/{childId}/activityLogs/{dateKey}/entries/{entryId}
       match /activityLogs/{dateKey}/entries/{entryId} {
-        allow read: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
+        allow read: if (isAuthenticated() && belongsToDaycare(getChildDaycareId(childId)))
+                       || isParentOfChild(childId);
         allow create: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
         allow update: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
         allow delete: if isAdminOfDaycare(getChildDaycareId(childId));
@@ -161,7 +197,8 @@ service cloud.firestore {
       // --- INCIDENT LOGS ---
       // Path: children/{childId}/incidentLogs/{dateKey}/entries/{entryId}
       match /incidentLogs/{dateKey}/entries/{entryId} {
-        allow read: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
+        allow read: if (isAuthenticated() && belongsToDaycare(getChildDaycareId(childId)))
+                       || isParentOfChild(childId);
         allow create: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
         allow update: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
         allow delete: if isAdminOfDaycare(getChildDaycareId(childId));
@@ -188,6 +225,37 @@ service cloud.firestore {
 
       // Immutable — no updates or deletes by anyone
       allow update, delete: if false;
+    }
+
+    // ============================================
+    // PARENT INVITES (Parents Portal)
+    // ============================================
+    // Document ID is the invited parent's lowercased email address.
+    // This document — not the emailed sign-in link — is what authorizes parent
+    // access. Anyone can request a magic link for their own address, so the
+    // invite is the gate.
+    match /parentInvites/{inviteEmail} {
+      // The invited parent reads their own invite to complete sign-in.
+      // Admins read invites belonging to their own daycare.
+      allow read: if (isAuthenticated() && authEmail() == inviteEmail)
+                     || (resource != null && isAdminOfDaycare(resource.data.daycareId));
+
+      // Only an admin of the same daycare may issue an invite, and the document
+      // ID must match the email it claims, so it can be found at sign-in.
+      allow create: if isAdminOfDaycare(request.resource.data.daycareId)
+                       && request.resource.data.status == 'pending'
+                       && request.resource.data.email.lower() == inviteEmail;
+
+      // Admins may re-issue. The invited parent may only mark it accepted,
+      // and only in their own name — familyId and daycareId cannot be touched.
+      allow update: if isAdminOfDaycare(resource.data.daycareId)
+                       || (isAuthenticated()
+                           && authEmail() == inviteEmail
+                           && request.resource.data.diff(resource.data).affectedKeys()
+                                .hasOnly(['status', 'acceptedAt', 'acceptedBy'])
+                           && request.resource.data.acceptedBy == request.auth.uid);
+
+      allow delete: if isAdminOfDaycare(resource.data.daycareId);
     }
 
     // ============================================

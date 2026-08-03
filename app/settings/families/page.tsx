@@ -9,6 +9,7 @@ import Button from '@/components/Button';
 import { useRouter } from 'next/navigation';
 import EditChildModal from '@/components/EditChildModal';
 import EditFamilyModal from '@/components/EditFamilyModal';
+import InviteParentModal from '@/components/parent/InviteParentModal';
 import { Family, Child } from '@/types';
 
 interface FamilyWithChildren {
@@ -26,6 +27,7 @@ export default function FamiliesSettingsPage() {
   // Modal states
   const [editingChild, setEditingChild] = useState<Child | null>(null);
   const [editingFamily, setEditingFamily] = useState<Family | null>(null);
+  const [invitingFamily, setInvitingFamily] = useState<Family | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -199,6 +201,13 @@ export default function FamiliesSettingsPage() {
                     <div className="flex gap-2">
                       <Button
                         variant="secondary"
+                        onClick={() => setInvitingFamily(family)}
+                        className="text-sm"
+                      >
+                        ✉️ Invite Parent
+                      </Button>
+                      <Button
+                        variant="secondary"
                         onClick={() => setEditingFamily(family)}
                         className="text-sm"
                       >
@@ -309,6 +318,16 @@ export default function FamiliesSettingsPage() {
             setEditingChild(null);
             fetchFamilies(); // Refresh the list
           }}
+        />
+      )}
+
+      {/* Invite Parent Modal */}
+      {invitingFamily && user && (
+        <InviteParentModal
+          family={invitingFamily}
+          admin={user}
+          isOpen={!!invitingFamily}
+          onClose={() => setInvitingFamily(null)}
         />
       )}
 
