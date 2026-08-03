@@ -15,8 +15,16 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
+    // Staff-side access to a daycare's data.
+    //
+    // The role check is load-bearing, not decorative. Parent accounts also
+    // carry a daycareId (copied from their invite), so a daycareId-only check
+    // would let any parent read AND WRITE every child's logs in the daycare.
+    // Parents are scoped by familyId via isParentOfChild() instead.
     function belongsToDaycare(daycareId) {
-      return isAuthenticated() && getUserData().daycareId == daycareId;
+      return isAuthenticated()
+             && getUserData().daycareId == daycareId
+             && getUserData().role in ['admin', 'staff'];
     }
 
     function isAdminOfDaycare(daycareId) {
@@ -87,28 +95,57 @@ service cloud.firestore {
         getUserData().daycareId == resource.data.daycareId
       );
 
-      // Users can create their own document (registration + staff invite).
-      // Staff/admin registration is unchanged. A 'parent' document may only be
-      // created when a matching invite exists for the signed-in email address,
-      // and familyId/daycareId must be copied from that invite — otherwise any
-      // signed-in user could grant themselves access to any family's records.
-      allow create: if isAuthenticated() && request.auth.uid == userId && (
-        request.resource.data.role in ['admin', 'staff'] ||
-        (
-          request.resource.data.role == 'parent' &&
-          exists(/databases/$(database)/documents/parentInvites/$(authEmail())) &&
-          request.resource.data.familyId ==
-            get(/databases/$(database)/documents/parentInvites/$(authEmail())).data.familyId &&
-          request.resource.data.daycareId ==
-            get(/databases/$(database)/documents/parentInvites/$(authEmail())).data.daycareId
-        )
+      // Account creation. Each branch below is a specific, authorized path —
+      // no branch lets a user pick both their own role AND an existing
+      // daycareId, which is what allowed self-promotion to admin previously.
+      allow create: if isAuthenticated() && (
+
+        // 1. New daycare owner signing up at /signup.
+        //    Allowed to be 'admin', but ONLY with no daycareId. The daycare
+        //    link is added later by the update rule below, which requires them
+        //    to actually own the daycare they are attaching to.
+        (request.auth.uid == userId
+         && request.resource.data.role == 'admin'
+         && !('daycareId' in request.resource.data))
+
+        // 2. Staff account created by an admin of that same daycare.
+        //    The document is written at the new staff member's uid, not the
+        //    admin's, so this branch deliberately does not require uid match.
+        || (request.resource.data.role == 'staff'
+            && isAdminOfDaycare(request.resource.data.daycareId))
+
+        // 3. Parent redeeming an invite. familyId and daycareId must be copied
+        //    from the invite rather than supplied freely.
+        || (request.auth.uid == userId
+            && request.resource.data.role == 'parent'
+            && exists(/databases/$(database)/documents/parentInvites/$(authEmail()))
+            && request.resource.data.familyId ==
+                 get(/databases/$(database)/documents/parentInvites/$(authEmail())).data.familyId
+            && request.resource.data.daycareId ==
+                 get(/databases/$(database)/documents/parentInvites/$(authEmail())).data.daycareId)
       );
 
-      // Users can update their own profile
-      // Admin can update staff in their daycare
+      // Profile updates. A user may edit their own details but may NOT change
+      // their own role, and may only attach themselves to a daycare they
+      // created — closing the same escalation path via update instead of create.
       allow update: if isAuthenticated() && (
-        request.auth.uid == userId ||
-        isAdminOfDaycare(resource.data.daycareId)
+
+        (request.auth.uid == userId
+         && request.resource.data.role == resource.data.role
+         && (
+           // daycareId unchanged (ordinary profile edit)
+           (('daycareId' in resource.data)
+            && ('daycareId' in request.resource.data)
+            && request.resource.data.daycareId == resource.data.daycareId)
+           // or first-time attach, only to a daycare this user created
+           || (!('daycareId' in resource.data)
+               && exists(/databases/$(database)/documents/daycares/$(request.resource.data.daycareId))
+               && get(/databases/$(database)/documents/daycares/$(request.resource.data.daycareId)).data.createdBy == request.auth.uid)
+         ))
+
+        // Admins may manage users already in their own daycare (e.g. removing
+        // a staff member by clearing daycareId).
+        || (('daycareId' in resource.data) && isAdminOfDaycare(resource.data.daycareId))
       );
 
       // Only admin can delete staff from their daycare
