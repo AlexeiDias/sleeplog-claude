@@ -14,7 +14,7 @@ import {
 } from '@firebase/rules-unit-testing';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 // Resolved relative to THIS file, not the working directory — the emulator is
 // launched from the repo root so that firebase-tools can see firestore.rules.
@@ -189,6 +189,54 @@ await check('parent-invite', 'admin can create an invite for their daycare', 'al
   setDoc(doc(as('admin_uid', 'admin@lsd.com'), 'parentInvites', 'newkid2@x.com'),
     { email: 'newkid2@x.com', familyId: FAMILY_A, daycareId: DAYCARE,
       invitedBy: 'admin_uid', status: 'pending' }));
+
+// ─────────────────────────────────────────────────────────────
+// Revocation — access must not rebuild itself
+// ─────────────────────────────────────────────────────────────
+await check('revoke', 'admin can delete a parent user doc (revoke)', 'allow', async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'users', 'revokable_parent'), {
+      email: 'revokable@x.com', role: 'parent', daycareId: DAYCARE, familyId: FAMILY_A,
+    });
+  });
+  return deleteDoc(doc(as('admin_uid', 'admin@lsd.com'), 'users', 'revokable_parent'));
+});
+
+await check('revoke', 'admin can mark an invite revoked', 'allow', async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'parentInvites', 'revoked@x.com'), {
+      email: 'revoked@x.com', familyId: FAMILY_A, daycareId: DAYCARE,
+      invitedBy: 'admin_uid', status: 'accepted', acceptedBy: 'revoked_uid',
+    });
+  });
+  return updateDoc(doc(as('admin_uid', 'admin@lsd.com'), 'parentInvites', 'revoked@x.com'),
+    { status: 'revoked' });
+});
+
+await check('revoke', 'revoked parent CANNOT rebuild their user doc', 'deny', () =>
+  setDoc(doc(as('revoked_uid', 'revoked@x.com'), 'users', 'revoked_uid'),
+    { email: 'revoked@x.com', role: 'parent', familyId: FAMILY_A, daycareId: DAYCARE }));
+
+await check('revoke', 'accepted parent CAN rebuild their own user doc', 'allow', async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'parentInvites', 'rebuild@x.com'), {
+      email: 'rebuild@x.com', familyId: FAMILY_A, daycareId: DAYCARE,
+      invitedBy: 'admin_uid', status: 'accepted', acceptedBy: 'rebuild_uid',
+    });
+  });
+  return setDoc(doc(as('rebuild_uid', 'rebuild@x.com'), 'users', 'rebuild_uid'),
+    { email: 'rebuild@x.com', role: 'parent', familyId: FAMILY_A, daycareId: DAYCARE });
+});
+
+await check('revoke', 'another account CANNOT use an accepted invite', 'deny', () =>
+  setDoc(doc(as('thief_uid', 'rebuild@x.com'), 'users', 'thief_uid'),
+    { email: 'rebuild@x.com', role: 'parent', familyId: FAMILY_A, daycareId: DAYCARE }));
+
+await check('revoke', 'admin can delete an invite (cancel)', 'allow', () =>
+  deleteDoc(doc(as('admin_uid', 'admin@lsd.com'), 'parentInvites', 'newkid2@x.com')));
+
+await check('revoke', 'parent CANNOT revoke another parent', 'deny', () =>
+  deleteDoc(doc(as('parentA_uid', 'parenta@x.com'), 'users', 'parentA_uid')));
 
 // ─────────────────────────────────────────────────────────────
 // Parent data scoping

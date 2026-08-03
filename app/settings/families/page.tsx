@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import EditChildModal from '@/components/EditChildModal';
 import EditFamilyModal from '@/components/EditFamilyModal';
 import InviteParentModal from '@/components/parent/InviteParentModal';
+import ParentAccessSection from '@/components/parent/ParentAccessSection';
 import { Family, Child } from '@/types';
 
 interface FamilyWithChildren {
@@ -293,6 +294,17 @@ export default function FamiliesSettingsPage() {
                       </div>
                     )}
                   </div>
+
+                  {user && (
+                    <ParentAccessSection
+                      // Remount only this family's section when its invite
+                      // modal opens or closes, so the access list picks up a
+                      // newly sent invite without reloading every family.
+                      key={`${family.id}-access-${invitingFamily?.id === family.id ? 'active' : 'idle'}`}
+                      family={family}
+                      admin={user}
+                    />
+                  )}
                 </div>
               );
             })}
