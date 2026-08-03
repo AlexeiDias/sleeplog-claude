@@ -48,6 +48,11 @@ await testEnv.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'users', 'staff_uid'), {
     email: 'staff@lsd.com', role: 'staff', daycareId: DAYCARE, initials: 'ST',
   });
+  // Separate staff account used only by the "admin removes staff" test, so it
+  // does not strip daycareId from staff_uid and break later staff assertions.
+  await setDoc(doc(db, 'users', 'staff_removable_uid'), {
+    email: 'removable@lsd.com', role: 'staff', daycareId: DAYCARE, initials: 'RM',
+  });
   await setDoc(doc(db, 'users', 'parentA_uid'), {
     email: 'parenta@x.com', role: 'parent', daycareId: DAYCARE, familyId: FAMILY_A,
   });
@@ -65,7 +70,19 @@ await testEnv.withSecurityRulesDisabled(async (ctx) => {
     await setDoc(doc(db, 'children', child, 'sleepLogs', DATE, 'entries', 'e1'), {
       type: 'start', staffInitials: 'TD',
     });
+    await setDoc(doc(db, 'children', child, 'careLogs', DATE, 'entries', 'e1'), {
+      type: 'bottle', amount: 4, staffInitials: 'TD',
+    });
+    await setDoc(doc(db, 'children', child, 'incidentLogs', DATE, 'entries', 'e1'), {
+      type: 'injury', description: 'scraped knee', staffInitials: 'TD',
+    });
   }
+  await setDoc(doc(db, 'families', FAMILY_A), {
+    daycareId: DAYCARE, motherName: 'Mother A', motherEmail: 'parenta@x.com',
+  });
+  await setDoc(doc(db, 'daycares', DAYCARE, 'activitySettings', 'config'), {
+    enabled: true, categories: [],
+  });
   await setDoc(doc(db, 'parentInvites', 'invited@x.com'), {
     email: 'invited@x.com', familyId: FAMILY_A, daycareId: DAYCARE,
     invitedBy: 'admin_uid', status: 'pending',
@@ -146,7 +163,8 @@ await check('profile', 'user can update their own initials', 'allow', () =>
   updateDoc(doc(as('staff_uid', 'staff@lsd.com'), 'users', 'staff_uid'), { initials: 'ZZ' }));
 
 await check('profile', 'admin can clear a staff daycareId (remove staff)', 'allow', () =>
-  updateDoc(doc(as('admin_uid', 'admin@lsd.com'), 'users', 'staff_uid'), { daycareId: null }));
+  updateDoc(doc(as('admin_uid', 'admin@lsd.com'), 'users', 'staff_removable_uid'),
+    { daycareId: null }));
 
 // ─────────────────────────────────────────────────────────────
 // Parent invite gate (Phase 1)
@@ -186,6 +204,41 @@ await check('parent-scope', 'parent CANNOT read another family child logs', 'den
 await check('parent-scope', 'parent CANNOT write to child sleep logs', 'deny', () =>
   setDoc(doc(as('parentA_uid', 'parenta@x.com'),
     'children', CHILD_A, 'sleepLogs', DATE, 'entries', 'forged'), { type: 'start' }));
+
+await check('parent-scope', 'parent CANNOT write to OWN child care logs', 'deny', () =>
+  setDoc(doc(as('parentA_uid', 'parenta@x.com'),
+    'children', CHILD_A, 'careLogs', DATE, 'entries', 'forged'), { type: 'bottle', amount: 4 }));
+
+await check('parent-scope', 'parent CANNOT read another family care logs', 'deny', () =>
+  getDoc(doc(as('parentA_uid', 'parenta@x.com'),
+    'children', CHILD_B, 'careLogs', DATE, 'entries', 'e1')));
+
+await check('parent-scope', 'parent CANNOT read another family incident logs', 'deny', () =>
+  getDoc(doc(as('parentA_uid', 'parenta@x.com'),
+    'children', CHILD_B, 'incidentLogs', DATE, 'entries', 'e1')));
+
+await check('parent-scope', 'parent CANNOT edit a child record', 'deny', () =>
+  updateDoc(doc(as('parentA_uid', 'parenta@x.com'), 'children', CHILD_A), { name: 'Renamed' }));
+
+await check('parent-scope', 'parent CANNOT create a child', 'deny', () =>
+  setDoc(doc(as('parentA_uid', 'parenta@x.com'), 'children', 'child_forged'),
+    { name: 'Forged', familyId: FAMILY_A, daycareId: DAYCARE }));
+
+await check('parent-scope', 'parent CANNOT edit a family record', 'deny', () =>
+  updateDoc(doc(as('parentA_uid', 'parenta@x.com'), 'families', FAMILY_A), { motherName: 'Changed' }));
+
+await check('parent-scope', 'parent CANNOT read daycare activity settings', 'deny', () =>
+  getDoc(doc(as('parentA_uid', 'parenta@x.com'),
+    'daycares', DAYCARE, 'activitySettings', 'config')));
+
+await check('parent-scope', 'staff CAN still read child logs (no regression)', 'allow', () =>
+  getDoc(doc(as('staff_uid', 'staff@lsd.com'),
+    'children', CHILD_A, 'sleepLogs', DATE, 'entries', 'e1')));
+
+await check('parent-scope', 'staff CAN still write child logs (no regression)', 'allow', () =>
+  setDoc(doc(as('staff_uid', 'staff@lsd.com'),
+    'children', CHILD_A, 'careLogs', DATE, 'entries', 'staff_entry'),
+    { type: 'bottle', amount: 4, staffInitials: 'ST' }));
 
 // ─────────────────────────────────────────────────────────────
 // Kiosk paths that must stay public
