@@ -222,7 +222,7 @@ export default function ParentAccessSection({
 
       {loading ? (
         <p className="text-sm text-gray-500">Loading…</p>
-      ) : parents.length === 0 && looseInvites.length === 0 ? (
+      ) : error ? null : parents.length === 0 && looseInvites.length === 0 ? (
         <p className="text-sm text-gray-500 italic">
           No parent has portal access to this family yet.
         </p>
