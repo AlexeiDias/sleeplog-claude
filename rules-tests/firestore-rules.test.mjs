@@ -13,7 +13,12 @@ import {
   assertSucceeds,
 } from '@firebase/rules-unit-testing';
 import { readFileSync } from 'fs';
-import { doc, getDoc, setDoc, updateDoc, deleteField } from 'firebase/firestore';
+import { fileURLToPath } from 'url';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+
+// Resolved relative to THIS file, not the working directory — the emulator is
+// launched from the repo root so that firebase-tools can see firestore.rules.
+const RULES_PATH = fileURLToPath(new URL('../firestore.rules', import.meta.url));
 
 const DAYCARE = 'daycare_lsd';
 const FAMILY_A = 'family_a';
@@ -27,7 +32,7 @@ const testEnv = await initializeTestEnvironment({
   firestore: {
     host: '127.0.0.1',
     port: 8080,
-    rules: readFileSync('../firestore.rules', 'utf8'),
+    rules: readFileSync(RULES_PATH, 'utf8'),
   },
 });
 
