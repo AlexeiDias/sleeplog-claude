@@ -90,6 +90,16 @@ await check('constraints', 'non-image upload to child photos is rejected', 'deny
 await check('constraints', 'non-image upload to incidents is rejected', 'deny', () =>
   uploadBytes(ref(staff(), 'incidents/child_a/2026-08-03/doc.pdf'), png(), pdfMeta));
 
+// Both paths cap at 5MB, matching the rules that were already live in the
+// console before storage.rules existed in the repo.
+const overSized = () => new Uint8Array(5 * 1024 * 1024 + 1024);
+
+await check('constraints', 'child photo over 5MB is rejected', 'deny', () =>
+  uploadBytes(ref(staff(), 'children/child_a/huge.jpg'), overSized(), imageMeta));
+
+await check('constraints', 'incident photo over 5MB is rejected', 'deny', () =>
+  uploadBytes(ref(staff(), 'incidents/child_a/2026-08-03/huge'), overSized(), imageMeta));
+
 // ── Undeclared paths are denied by default ─────────────────────
 await check('unknown-paths', 'writing to an undeclared path is denied', 'deny', () =>
   uploadBytes(ref(staff(), 'random/anything.jpg'), png(), imageMeta));
