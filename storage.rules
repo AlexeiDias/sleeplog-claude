@@ -1,0 +1,62 @@
+rules_version = '2';
+
+// Cloud Storage security rules for LogginCare.
+//
+// IMPORTANT: these are a SEPARATE ruleset from firestore.rules and are
+// deployed separately (`firebase deploy --only storage`). Nothing in
+// firestore.rules applies here.
+//
+// KEY LIMITATION: Storage rules cannot read Firestore. There is no Storage
+// equivalent of isParentOfChild() — authorization can only use the request
+// path and the auth token. Scoping a file to one family therefore requires
+// custom claims on the token (set via the Firebase Admin SDK), which this
+// project does not have yet. Until then these rules can distinguish
+// "signed in" from "not signed in", but not one signed-in family from
+// another.
+//
+// ALSO NOTE: getDownloadURL() returns a token-bearing URL that bypasses these
+// rules entirely. Anyone holding that link can fetch the file regardless of
+// what is written below. That is acceptable for profile photos; it is NOT
+// acceptable for medical or contractual documents, which should be served
+// through an authenticated API route instead.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    function underMb(n) {
+      return request.resource.size < n * 1024 * 1024;
+    }
+
+    // --- CHILD PROFILE PHOTOS ---
+    // Written by components/ImageUpload.tsx (staff-side only in the UI).
+    // Path: children/{childId}/photo_{timestamp}.jpg
+    //
+    // The kiosk displays these while signed out, but it does so through
+    // download URLs, which bypass these rules — so requiring auth for direct
+    // reads does not break the kiosk.
+    match /children/{childId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isImage() && underMb(5);
+    }
+
+    // --- INCIDENT PHOTOS ---
+    // Written by components/IncidentLogModal.tsx and EditIncidentLogModal.tsx.
+    // Path: incidents/{childId}/{dateKey}/{entryId}
+    match /incidents/{childId}/{dateKey}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isImage() && underMb(10);
+    }
+
+    // Everything else is denied by default — Storage denies any path that no
+    // match block allows. Future features (message attachments, documents)
+    // must add their own explicit block here, and tests alongside it.
+  }
+}
