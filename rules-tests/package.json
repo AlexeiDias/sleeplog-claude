@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "cd .. && firebase emulators:exec --only firestore --project demo-loggincare \"node rules-tests/firestore-rules.test.mjs\""
+    "test": "npm run test:firestore && npm run test:storage",
+    "test:firestore": "cd .. && firebase emulators:exec --only firestore --project demo-loggincare \"node rules-tests/firestore-rules.test.mjs\"",
+    "test:storage": "cd .. && firebase emulators:exec --only storage --project demo-loggincare \"node rules-tests/storage-rules.test.mjs\""
   },
   "dependencies": {
     "@firebase/rules-unit-testing": "^5.0.0",
