@@ -53,19 +53,28 @@ export default function LandingPage() {
               Pricing
             </a>
             {user ? (
+              // Parents land here from a home-screen shortcut (manifest
+              // start_url is "/"), so send them to their own portal rather
+              // than a staff dashboard they cannot open.
               <Link
-                href="/dashboard"
+                href={user.role === 'parent' ? '/parent' : '/dashboard'}
                 className="bg-amber-500 hover:bg-amber-600 text-white px-5 py-2 rounded-full font-medium transition shadow-lg shadow-amber-200"
               >
-                Go to Dashboard →
+                {user.role === 'parent' ? 'Go to Portal →' : 'Go to Dashboard →'}
               </Link>
             ) : (
               <>
-                <Link 
+                <Link
+                  href="/parent/login"
+                  className="text-amber-800 hover:text-amber-600 transition"
+                >
+                  Parent Sign-In
+                </Link>
+                <Link
                   href="/login"
                   className="text-amber-800 hover:text-amber-600 transition"
                 >
-                  Log In
+                  Staff Log In
                 </Link>
                 <Link
                   href="/register"

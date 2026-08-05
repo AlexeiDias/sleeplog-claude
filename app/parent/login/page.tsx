@@ -112,8 +112,9 @@ export default function ParentLoginPage() {
         )}
 
         <p className="mt-6 text-center text-xs text-gray-500">
-          Access is granted by your daycare. If you have not been invited yet,
-          please contact them directly.
+          Already have access? You do not need a new invitation — just request a
+          link above with the same email address. If your daycare has not given
+          you access yet, please contact them directly.
         </p>
       </div>
     </div>
