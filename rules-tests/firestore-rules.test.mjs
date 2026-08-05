@@ -331,6 +331,120 @@ await check('list', 'parent CAN list their own family children', 'allow', () =>
     where('familyId', '==', FAMILY_A))));
 
 // ─────────────────────────────────────────────────────────────
+// MESSAGING — thread ID is the familyId, so rules authorize from the path
+// ─────────────────────────────────────────────────────────────
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore();
+  await setDoc(doc(db, 'messageThreads', FAMILY_A), {
+    familyId: FAMILY_A, daycareId: DAYCARE, lastMessagePreview: 'hi',
+  });
+  await setDoc(doc(db, 'messageThreads', FAMILY_B), {
+    familyId: FAMILY_B, daycareId: DAYCARE, lastMessagePreview: 'hi',
+  });
+  await setDoc(doc(db, 'messageThreads', FAMILY_A, 'messages', 'm1'), {
+    familyId: FAMILY_A, senderId: 'staff_uid', senderRole: 'staff',
+    senderName: 'Staff', text: 'Hello',
+  });
+  await setDoc(doc(db, 'messageThreads', FAMILY_B, 'messages', 'm1'), {
+    familyId: FAMILY_B, senderId: 'staff_uid', senderRole: 'staff',
+    senderName: 'Staff', text: 'Hello',
+  });
+  await setDoc(doc(db, 'media', 'media_a'), {
+    familyId: FAMILY_A, daycareId: DAYCARE, source: 'message',
+    uploadedBy: 'staff_uid', uploadedByRole: 'staff', url: 'x', path: 'x',
+  });
+  await setDoc(doc(db, 'media', 'media_b'), {
+    familyId: FAMILY_B, daycareId: DAYCARE, source: 'message',
+    uploadedBy: 'staff_uid', uploadedByRole: 'staff', url: 'x', path: 'x',
+  });
+});
+
+await check('messaging', 'parent CAN read own family messages', 'allow', () =>
+  getDocs(collection(as('parentA_uid', 'parenta@x.com'),
+    'messageThreads', FAMILY_A, 'messages')));
+
+await check('messaging', 'parent CANNOT read another family messages', 'deny', () =>
+  getDocs(collection(as('parentA_uid', 'parenta@x.com'),
+    'messageThreads', FAMILY_B, 'messages')));
+
+await check('messaging', 'staff CAN read any family messages in daycare', 'allow', () =>
+  getDocs(collection(as('staff_uid', 'staff@lsd.com'),
+    'messageThreads', FAMILY_B, 'messages')));
+
+await check('messaging', 'staff CAN list threads by daycareId', 'allow', () =>
+  getDocs(query(collection(as('staff_uid', 'staff@lsd.com'), 'messageThreads'),
+    where('daycareId', '==', DAYCARE))));
+
+await check('messaging', 'parent CANNOT list all threads', 'deny', () =>
+  getDocs(query(collection(as('parentA_uid', 'parenta@x.com'), 'messageThreads'),
+    where('daycareId', '==', DAYCARE))));
+
+await check('messaging', 'parent CAN send as parent in own thread', 'allow', () =>
+  setDoc(doc(as('parentA_uid', 'parenta@x.com'),
+    'messageThreads', FAMILY_A, 'messages', 'p_msg'),
+    { familyId: FAMILY_A, senderId: 'parentA_uid', senderRole: 'parent',
+      senderName: 'Parent A', text: 'Hi' }));
+
+await check('messaging', 'parent CANNOT impersonate staff', 'deny', () =>
+  setDoc(doc(as('parentA_uid', 'parenta@x.com'),
+    'messageThreads', FAMILY_A, 'messages', 'fake_staff'),
+    { familyId: FAMILY_A, senderId: 'parentA_uid', senderRole: 'staff',
+      senderName: 'Tais', text: 'Official notice' }));
+
+await check('messaging', 'parent CANNOT forge another senderId', 'deny', () =>
+  setDoc(doc(as('parentA_uid', 'parenta@x.com'),
+    'messageThreads', FAMILY_A, 'messages', 'forged_sender'),
+    { familyId: FAMILY_A, senderId: 'staff_uid', senderRole: 'parent',
+      senderName: 'Parent A', text: 'Hi' }));
+
+await check('messaging', 'parent CANNOT post into another family thread', 'deny', () =>
+  setDoc(doc(as('parentA_uid', 'parenta@x.com'),
+    'messageThreads', FAMILY_B, 'messages', 'intruder'),
+    { familyId: FAMILY_B, senderId: 'parentA_uid', senderRole: 'parent',
+      senderName: 'Parent A', text: 'Hi' }));
+
+await check('messaging', 'messages are immutable', 'deny', () =>
+  updateDoc(doc(as('staff_uid', 'staff@lsd.com'),
+    'messageThreads', FAMILY_A, 'messages', 'm1'), { text: 'edited' }));
+
+await check('messaging', 'staff CANNOT delete a message (admin only)', 'deny', () =>
+  deleteDoc(doc(as('staff_uid', 'staff@lsd.com'),
+    'messageThreads', FAMILY_A, 'messages', 'm1')));
+
+// ─────────────────────────────────────────────────────────────
+// MEDIA gallery
+// ─────────────────────────────────────────────────────────────
+await check('media', 'parent CAN list own family media', 'allow', () =>
+  getDocs(query(collection(as('parentA_uid', 'parenta@x.com'), 'media'),
+    where('familyId', '==', FAMILY_A))));
+
+await check('media', 'parent CANNOT list another family media', 'deny', () =>
+  getDocs(query(collection(as('parentA_uid', 'parenta@x.com'), 'media'),
+    where('familyId', '==', FAMILY_B))));
+
+await check('media', 'parent CANNOT list all media in the daycare', 'deny', () =>
+  getDocs(query(collection(as('parentA_uid', 'parenta@x.com'), 'media'),
+    where('daycareId', '==', DAYCARE))));
+
+await check('media', 'staff CAN list media by daycareId', 'allow', () =>
+  getDocs(query(collection(as('staff_uid', 'staff@lsd.com'), 'media'),
+    where('daycareId', '==', DAYCARE))));
+
+await check('media', 'parent CAN add media to own family', 'allow', () =>
+  setDoc(doc(as('parentA_uid', 'parenta@x.com'), 'media', 'parent_upload'),
+    { familyId: FAMILY_A, daycareId: DAYCARE, source: 'message',
+      uploadedBy: 'parentA_uid', uploadedByRole: 'parent', url: 'x', path: 'x' }));
+
+await check('media', 'parent CANNOT add media to another family', 'deny', () =>
+  setDoc(doc(as('parentA_uid', 'parenta@x.com'), 'media', 'cross_family'),
+    { familyId: FAMILY_B, daycareId: DAYCARE, source: 'message',
+      uploadedBy: 'parentA_uid', uploadedByRole: 'parent', url: 'x', path: 'x' }));
+
+await check('media', 'media is immutable', 'deny', () =>
+  updateDoc(doc(as('staff_uid', 'staff@lsd.com'), 'media', 'media_a'),
+    { caption: 'edited' }));
+
+// ─────────────────────────────────────────────────────────────
 // Kiosk paths that must stay public
 // ─────────────────────────────────────────────────────────────
 const anon = testEnv.unauthenticatedContext().firestore();

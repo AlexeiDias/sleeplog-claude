@@ -284,6 +284,84 @@ service cloud.firestore {
     }
 
     // ============================================
+    // MESSAGE THREADS (Parents Portal Phase 2)
+    // ============================================
+    // One thread per family; the document ID IS the familyId.
+    //
+    // That choice is what makes parent access provable for list operations:
+    // the messages subcollection can be authorized from the path alone
+    // (getUserData().familyId == threadId) with no document read. A rule that
+    // had to inspect resource data would be unprovable from query constraints
+    // and Firestore would reject the whole query.
+    function isParentOfFamily(familyId) {
+      return isAuthenticated()
+             && getUserData().role == 'parent'
+             && getUserData().familyId == familyId;
+    }
+
+    match /messageThreads/{threadId} {
+      // Staff list threads with where('daycareId','==',...), which makes this
+      // provable. Parents read only their own thread, by ID.
+      allow read: if isParentOfFamily(threadId)
+                     || (resource != null && belongsToDaycare(resource.data.daycareId));
+
+      // Either side may open the thread or update its summary fields.
+      allow create: if (isParentOfFamily(threadId)
+                        && request.resource.data.familyId == threadId)
+                       || belongsToDaycare(request.resource.data.daycareId);
+
+      allow update: if isParentOfFamily(threadId)
+                       || belongsToDaycare(resource.data.daycareId);
+
+      // Threads are never deleted — message history is a care record.
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        // threadId == familyId, so no document read is needed here.
+        allow read: if isParentOfFamily(threadId)
+                       || (isAuthenticated() && getUserData().role in ['admin', 'staff']);
+
+        // Senders cannot forge who they are.
+        allow create: if request.resource.data.senderId == request.auth.uid
+                         && request.resource.data.familyId == threadId
+                         && (
+                           (isParentOfFamily(threadId)
+                            && request.resource.data.senderRole == 'parent')
+                           || (isAuthenticated()
+                               && getUserData().role in ['admin', 'staff']
+                               && request.resource.data.senderRole == 'staff')
+                         );
+
+        // Messages are immutable once sent. Editing history in a care record
+        // would undermine it; deletion is admin-only for moderation.
+        allow update: if false;
+        allow delete: if isAdmin();
+      }
+    }
+
+    // ============================================
+    // MEDIA (shared photo index)
+    // ============================================
+    // Flat index so the gallery is one query rather than a walk across
+    // messages, activities and incidents.
+    match /media/{mediaId} {
+      // Parents query with where('familyId','==',...); staff with
+      // where('daycareId','==',...). Both are provable.
+      allow read: if (resource != null && isParentOfFamily(resource.data.familyId))
+                     || (resource != null && belongsToDaycare(resource.data.daycareId));
+
+      allow create: if (isParentOfFamily(request.resource.data.familyId)
+                        && request.resource.data.uploadedBy == request.auth.uid
+                        && request.resource.data.uploadedByRole == 'parent')
+                       || (belongsToDaycare(request.resource.data.daycareId)
+                           && request.resource.data.uploadedBy == request.auth.uid
+                           && request.resource.data.uploadedByRole == 'staff');
+
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    // ============================================
     // PARENT INVITES (Parents Portal)
     // ============================================
     // Document ID is the invited parent's lowercased email address.

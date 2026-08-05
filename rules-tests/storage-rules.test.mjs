@@ -107,6 +107,23 @@ await check('unknown-paths', 'writing to an undeclared path is denied', 'deny', 
 await check('unknown-paths', 'writing to documents/ is denied (not built yet)', 'deny', () =>
   uploadBytes(ref(staff(), 'documents/family_a/vaccine.pdf'), png(), pdfMeta));
 
+// ── Message attachments ────────────────────────────────────────
+await check('messages', 'staff CAN upload a message photo', 'allow', () =>
+  uploadBytes(ref(staff(), 'messages/family_a/msg_1/photo.jpg'), png(), imageMeta));
+
+await check('messages', 'parent CAN upload a message photo', 'allow', () =>
+  uploadBytes(ref(parent(), 'messages/family_a/msg_2/photo.jpg'), png(), imageMeta));
+
+await check('messages', 'signed-out CANNOT upload a message photo', 'deny', () =>
+  uploadBytes(ref(anon(), 'messages/family_a/msg_3/photo.jpg'), png(), imageMeta));
+
+await check('messages', 'non-image message attachment is rejected', 'deny', () =>
+  uploadBytes(ref(staff(), 'messages/family_a/msg_4/doc.pdf'), png(), pdfMeta));
+
+await check('messages', 'message photo over 5MB is rejected', 'deny', () =>
+  uploadBytes(ref(staff(), 'messages/family_a/msg_5/huge.jpg'),
+    new Uint8Array(5 * 1024 * 1024 + 1024), imageMeta));
+
 // ── KNOWN GAP — documented, not yet fixable without custom claims ──
 // A parent can read any child's photo, including other families'. Storage
 // rules cannot check family membership. This assertion asserts the CURRENT

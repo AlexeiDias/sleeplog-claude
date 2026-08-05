@@ -3,6 +3,7 @@
 
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 
 // Routes under /parent that must stay reachable while signed out, otherwise the
@@ -73,6 +74,31 @@ export default function ParentLayout({
           </button>
         </div>
       </header>
+
+      <nav className="bg-white border-b">
+        <div className="max-w-3xl mx-auto px-4 flex gap-1">
+          {[
+            { href: '/parent', label: 'Today' },
+            { href: '/parent/messages', label: 'Messages' },
+            { href: '/parent/media', label: 'Photos' },
+          ].map((tab) => {
+            const active = pathname === tab.href;
+            return (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px ${
+                  active
+                    ? 'border-blue-600 text-blue-700'
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                {tab.label}
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
 
       <main className="max-w-3xl mx-auto px-4 py-6">{children}</main>
     </div>

@@ -1,0 +1,178 @@
+//app/messages/page.tsx
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useAuth } from '@/contexts/AuthContext';
+import Navbar from '@/components/Navbar';
+import MessageThreadView from '@/components/messaging/MessageThreadView';
+import { Family, MessageThread } from '@/types';
+import { formatMessageTime, toDate } from '@/lib/messaging';
+
+interface FamilyRow {
+  family: Family;
+  thread?: MessageThread;
+}
+
+export default function StaffMessagesPage() {
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const [rows, setRows] = useState<FamilyRow[]>([]);
+  const [selected, setSelected] = useState<Family | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) router.push('/login');
+  }, [user, authLoading, router]);
+
+  const load = useCallback(async () => {
+    if (!user?.daycareId) return;
+
+    setLoading(true);
+    setError('');
+
+    try {
+      // Both queries constrained by daycareId so the list rules are provable.
+      const [familySnap, threadSnap] = await Promise.all([
+        getDocs(query(collection(db, 'families'), where('daycareId', '==', user.daycareId))),
+        getDocs(query(collection(db, 'messageThreads'), where('daycareId', '==', user.daycareId))),
+      ]);
+
+      const threads = new Map<string, MessageThread>();
+      threadSnap.docs.forEach((d) => {
+        threads.set(d.id, {
+          id: d.id,
+          ...d.data(),
+          createdAt: toDate(d.data().createdAt),
+          lastMessageAt: d.data().lastMessageAt ? toDate(d.data().lastMessageAt) : undefined,
+        } as MessageThread);
+      });
+
+      const families = familySnap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+        createdAt: toDate(d.data().createdAt),
+      })) as Family[];
+
+      const withThreads = families
+        .map((family) => ({ family, thread: threads.get(family.id) }))
+        .sort((a, b) => {
+          const at = a.thread?.lastMessageAt?.getTime() || 0;
+          const bt = b.thread?.lastMessageAt?.getTime() || 0;
+          return bt - at;
+        });
+
+      setRows(withThreads);
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      console.error('Error loading message threads:', err);
+      setError(`Could not load conversations.${code ? ` (${code})` : ''}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.daycareId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (authLoading || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Navbar />
+      <div className="max-w-5xl mx-auto px-4 py-6">
+        <div className="mb-4">
+          <h1 className="text-2xl font-bold text-gray-800">Messages</h1>
+          <p className="text-sm text-gray-600">
+            Conversations with families who have portal access
+          </p>
+        </div>
+
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            {error}
+          </div>
+        )}
+
+        <div className="grid md:grid-cols-[280px_1fr] gap-4">
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            {loading ? (
+              <p className="p-6 text-sm text-gray-500 text-center">Loading…</p>
+            ) : rows.length === 0 ? (
+              <p className="p-6 text-sm text-gray-500 text-center">
+                No families registered yet.
+              </p>
+            ) : (
+              <ul className="divide-y max-h-[70vh] overflow-y-auto">
+                {rows.map(({ family, thread }) => {
+                  const name = family.motherName || family.fatherName || 'Unknown family';
+                  const active = selected?.id === family.id;
+                  return (
+                    <li key={family.id}>
+                      <button
+                        onClick={() => setSelected(family)}
+                        className={`w-full text-left px-4 py-3 hover:bg-gray-50 ${
+                          active ? 'bg-blue-50' : ''
+                        }`}
+                      >
+                        <div className="flex justify-between items-baseline gap-2">
+                          <p className="font-medium text-gray-800 truncate">{name}</p>
+                          {thread?.lastMessageAt && (
+                            <span className="text-[11px] text-gray-400 shrink-0">
+                              {formatMessageTime(thread.lastMessageAt)}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 truncate">
+                          {thread?.lastMessagePreview || 'No messages yet'}
+                        </p>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          <div className="bg-white rounded-lg shadow overflow-hidden flex flex-col">
+            {selected ? (
+              <>
+                <div className="px-4 py-3 border-b">
+                  <h2 className="font-semibold text-gray-800">
+                    {selected.motherName || selected.fatherName || 'Family'}
+                  </h2>
+                  <p className="text-xs text-gray-500">
+                    Visible to any parent with portal access to this family
+                  </p>
+                </div>
+                <MessageThreadView
+                  key={selected.id}
+                  familyId={selected.id}
+                  daycareId={selected.daycareId}
+                  currentUser={user}
+                  viewerRole="staff"
+                  emptyHint="No messages yet with this family."
+                />
+              </>
+            ) : (
+              <p className="p-12 text-center text-sm text-gray-500">
+                Select a family to view the conversation.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
