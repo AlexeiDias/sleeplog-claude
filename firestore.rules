@@ -310,8 +310,15 @@ service cloud.firestore {
                         && request.resource.data.familyId == threadId)
                        || belongsToDaycare(request.resource.data.daycareId);
 
-      allow update: if isParentOfFamily(threadId)
-                       || belongsToDaycare(resource.data.daycareId);
+      // Each side owns its own read marker. Without this a parent could stamp
+      // lastReadByStaffAt and silently clear the daycare's unread badge — and
+      // vice versa.
+      allow update: if (isParentOfFamily(threadId)
+                        && !request.resource.data.diff(resource.data)
+                              .affectedKeys().hasAny(['lastReadByStaffAt']))
+                       || (belongsToDaycare(resource.data.daycareId)
+                           && !request.resource.data.diff(resource.data)
+                                 .affectedKeys().hasAny(['lastReadByParentAt']));
 
       // Threads are never deleted — message history is a care record.
       allow delete: if false;
