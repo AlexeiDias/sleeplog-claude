@@ -55,6 +55,18 @@ service firebase.storage {
       allow write: if isSignedIn() && isImage() && underMb(5);
     }
 
+    // --- MESSAGE ATTACHMENTS ---
+    // Path: messages/{familyId}/{messageId}/{fileName}
+    //
+    // Family-scoped from the start, unlike the older children/{childId} paths,
+    // so these can be locked to a family by custom claims later without moving
+    // any files. Until claims exist this is still only "signed in" — see the
+    // known-gap test.
+    match /messages/{familyId}/{messageId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isImage() && underMb(5);
+    }
+
     // Everything else is denied by default — Storage denies any path that no
     // match block allows. Future features (message attachments, documents)
     // must add their own explicit block here, and tests alongside it.

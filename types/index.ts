@@ -31,6 +31,68 @@ export interface ParentInvite {
   acceptedBy?: string; // uid assigned at first sign-in
 }
 
+// ============================================
+// MESSAGING & MEDIA TYPES
+// ============================================
+
+// A photo attached to a message. `path` is the Cloud Storage object path and
+// is the durable reference; `url` is a download URL, which works without auth
+// for anyone holding it — never treat it as access control.
+export interface MessageAttachment {
+  path: string;
+  url: string;
+  contentType: string;
+  size: number;
+  fileName: string;
+}
+
+// One thread per family. The document ID IS the familyId, which lets security
+// rules authorize the messages subcollection from the path alone — no document
+// read required, so parent queries stay provable for list operations.
+export interface MessageThread {
+  id: string; // == familyId
+  familyId: string;
+  daycareId: string;
+  createdAt: Date;
+  lastMessageAt?: Date;
+  lastMessagePreview?: string;
+  lastMessageSenderRole?: 'parent' | 'staff';
+  unreadForParent?: number;
+  unreadForStaff?: number;
+}
+
+export interface Message {
+  id: string;
+  familyId: string;
+  senderId: string;
+  senderRole: 'parent' | 'staff';
+  senderName: string;
+  text: string;
+  attachments?: MessageAttachment[];
+  createdAt: Date;
+}
+
+// Flat index of every photo shared with a family, so the media gallery is a
+// single query instead of a walk across messages, activities and incidents.
+export interface MediaItem {
+  id: string;
+  familyId: string;
+  daycareId: string;
+  childId?: string;
+  path: string;
+  url: string;
+  contentType: string;
+  size: number;
+  fileName: string;
+  source: 'message' | 'activity' | 'incident';
+  sourceId?: string;
+  caption?: string;
+  uploadedBy: string;
+  uploadedByRole: 'parent' | 'staff';
+  uploadedByName: string;
+  createdAt: Date;
+}
+
 // Daycare Type
 export interface Daycare {
   id: string;

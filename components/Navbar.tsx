@@ -162,6 +162,9 @@ export default function Navbar() {
                 Staff
               </Link>
             )}
+            <Link href="/messages" className="text-gray-600 hover:text-gray-900">
+              Messages
+            </Link>
             <Link href="/analytics" className="text-gray-600 hover:text-gray-900">
               Analytics
             </Link>
@@ -234,8 +237,15 @@ export default function Navbar() {
                         👥 Staff
                       </Link>
                     )}
-                    <Link 
-                      href="/analytics" 
+                    <Link
+                      href="/messages"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      💬 Messages
+                    </Link>
+                    <Link
+                      href="/analytics"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
