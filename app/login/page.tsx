@@ -99,6 +99,12 @@ export default function LoginPage() {
           <Link href="/reset-password" className="text-blue-600 hover:underline text-sm mt-2 inline-block">
             Forgot password?
           </Link>
+          <p className="text-gray-600 mt-4 pt-4 border-t">
+            Are you a parent?{' '}
+            <Link href="/parent/login" className="text-blue-600 hover:underline font-medium">
+              Sign in here
+            </Link>
+          </p>
         </div>
       </div>
     </div>
