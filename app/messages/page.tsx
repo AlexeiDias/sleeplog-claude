@@ -8,6 +8,7 @@ import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import Navbar from '@/components/Navbar';
 import MessageThreadView from '@/components/messaging/MessageThreadView';
+import { useStaffUnreadThreads } from '@/components/messaging/useUnreadMessages';
 import { Family, MessageThread } from '@/types';
 import { formatMessageTime, toDate } from '@/lib/messaging';
 
@@ -23,6 +24,7 @@ export default function StaffMessagesPage() {
   const [selected, setSelected] = useState<Family | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { unreadFamilyIds } = useStaffUnreadThreads(user?.daycareId);
 
   useEffect(() => {
     if (authLoading) return;
@@ -127,7 +129,21 @@ export default function StaffMessagesPage() {
                         }`}
                       >
                         <div className="flex justify-between items-baseline gap-2">
-                          <p className="font-medium text-gray-800 truncate">{name}</p>
+                          <p
+                            className={`truncate ${
+                              unreadFamilyIds.has(family.id)
+                                ? 'font-semibold text-gray-900'
+                                : 'font-medium text-gray-800'
+                            }`}
+                          >
+                            {unreadFamilyIds.has(family.id) && (
+                              <span
+                                className="inline-block w-2 h-2 rounded-full bg-blue-600 mr-2 align-middle"
+                                aria-label="Unread messages"
+                              />
+                            )}
+                            {name}
+                          </p>
                           {thread?.lastMessageAt && (
                             <span className="text-[11px] text-gray-400 shrink-0">
                               {formatMessageTime(thread.lastMessageAt)}

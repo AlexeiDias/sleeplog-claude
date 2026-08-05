@@ -403,6 +403,26 @@ await check('messaging', 'parent CANNOT post into another family thread', 'deny'
     { familyId: FAMILY_B, senderId: 'parentA_uid', senderRole: 'parent',
       senderName: 'Parent A', text: 'Hi' }));
 
+await check('messaging', 'parent CAN stamp their own read marker', 'allow', () =>
+  updateDoc(doc(as('parentA_uid', 'parenta@x.com'), 'messageThreads', FAMILY_A),
+    { lastReadByParentAt: new Date() }));
+
+await check('messaging', 'parent CANNOT stamp the staff read marker', 'deny', () =>
+  updateDoc(doc(as('parentA_uid', 'parenta@x.com'), 'messageThreads', FAMILY_A),
+    { lastReadByStaffAt: new Date() }));
+
+await check('messaging', 'staff CAN stamp their own read marker', 'allow', () =>
+  updateDoc(doc(as('staff_uid', 'staff@lsd.com'), 'messageThreads', FAMILY_A),
+    { lastReadByStaffAt: new Date() }));
+
+await check('messaging', 'staff CANNOT stamp the parent read marker', 'deny', () =>
+  updateDoc(doc(as('staff_uid', 'staff@lsd.com'), 'messageThreads', FAMILY_A),
+    { lastReadByParentAt: new Date() }));
+
+await check('messaging', 'parent CANNOT touch another family thread', 'deny', () =>
+  updateDoc(doc(as('parentA_uid', 'parenta@x.com'), 'messageThreads', FAMILY_B),
+    { lastReadByParentAt: new Date() }));
+
 await check('messaging', 'messages are immutable', 'deny', () =>
   updateDoc(doc(as('staff_uid', 'staff@lsd.com'),
     'messageThreads', FAMILY_A, 'messages', 'm1'), { text: 'edited' }));

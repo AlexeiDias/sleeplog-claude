@@ -6,10 +6,13 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import Button from './Button';
+import { useStaffUnreadThreads } from '@/components/messaging/useUnreadMessages';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const router = useRouter();
+  // Live unread count so a new parent message is visible from any page.
+  const { count: unreadCount } = useStaffUnreadThreads(user?.daycareId);
   const [isReportsOpen, setIsReportsOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const reportsDropdownRef = useRef<HTMLDivElement>(null);
@@ -162,8 +165,16 @@ export default function Navbar() {
                 Staff
               </Link>
             )}
-            <Link href="/messages" className="text-gray-600 hover:text-gray-900">
+            <Link href="/messages" className="text-gray-600 hover:text-gray-900 relative">
               Messages
+              {unreadCount > 0 && (
+                <span
+                  className="absolute -top-2 -right-3 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-600 text-white text-[11px] font-medium flex items-center justify-center"
+                  aria-label={`${unreadCount} unread conversations`}
+                >
+                  {unreadCount}
+                </span>
+              )}
             </Link>
             <Link href="/analytics" className="text-gray-600 hover:text-gray-900">
               Analytics
@@ -239,10 +250,15 @@ export default function Navbar() {
                     )}
                     <Link
                       href="/messages"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      className="flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
-                      💬 Messages
+                      <span>💬 Messages</span>
+                      {unreadCount > 0 && (
+                        <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-blue-600 text-white text-[11px] font-medium flex items-center justify-center">
+                          {unreadCount}
+                        </span>
+                      )}
                     </Link>
                     <Link
                       href="/analytics"

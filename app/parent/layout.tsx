@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { useParentUnread } from '@/components/messaging/useUnreadMessages';
 
 // Routes under /parent that must stay reachable while signed out, otherwise the
 // guard below would bounce parents away from the very pages that sign them in.
@@ -18,6 +19,7 @@ export default function ParentLayout({
   const { user, loading: authLoading, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const hasUnread = useParentUnread(user?.familyId);
 
   const isPublicRoute = PUBLIC_PARENT_ROUTES.includes(pathname);
 
@@ -78,9 +80,9 @@ export default function ParentLayout({
       <nav className="bg-white border-b">
         <div className="max-w-3xl mx-auto px-4 flex gap-1">
           {[
-            { href: '/parent', label: 'Today' },
-            { href: '/parent/messages', label: 'Messages' },
-            { href: '/parent/media', label: 'Photos' },
+            { href: '/parent', label: 'Today', dot: false },
+            { href: '/parent/messages', label: 'Messages', dot: hasUnread },
+            { href: '/parent/media', label: 'Photos', dot: false },
           ].map((tab) => {
             const active = pathname === tab.href;
             return (
@@ -94,6 +96,12 @@ export default function ParentLayout({
                 }`}
               >
                 {tab.label}
+                {tab.dot && (
+                  <span
+                    className="inline-block w-2 h-2 rounded-full bg-blue-600 ml-1.5 align-super"
+                    aria-label="New messages"
+                  />
+                )}
               </Link>
             );
           })}

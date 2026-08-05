@@ -77,6 +77,25 @@ export default function MessageThreadView({
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length]);
 
+  // Mark this side's thread as read whenever it is open and messages change.
+  //
+  // Safe against loops: this writes to the thread document, while the listener
+  // above watches the messages subcollection, so the write cannot retrigger it.
+  useEffect(() => {
+    if (loading || messages.length === 0) return;
+
+    const field = viewerRole === 'parent' ? 'lastReadByParentAt' : 'lastReadByStaffAt';
+
+    setDoc(
+      doc(db, 'messageThreads', familyId),
+      { familyId, daycareId, [field]: serverTimestamp() },
+      { merge: true }
+    ).catch((err) => {
+      // Read state is a convenience, not a record. Never surface this.
+      console.error('Could not mark thread read:', err);
+    });
+  }, [familyId, daycareId, viewerRole, loading, messages.length]);
+
   function handleFilesSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(e.target.files || []);
     if (!selected.length) return;
@@ -137,6 +156,10 @@ export default function MessageThreadView({
             `${attachments.length} photo${attachments.length === 1 ? '' : 's'}`,
           lastMessageSenderRole: viewerRole,
           createdAt: serverTimestamp(),
+          // Stamp the sender's own read marker, so your message never shows as
+          // unread to you.
+          [viewerRole === 'parent' ? 'lastReadByParentAt' : 'lastReadByStaffAt']:
+            serverTimestamp(),
         },
         { merge: true }
       );
