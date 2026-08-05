@@ -13,6 +13,10 @@ import {
   attachmentPath, displayName, formatMessageTime, toDate,
   validateAttachment, MAX_ATTACHMENTS_PER_MESSAGE,
 } from '@/lib/messaging';
+import {
+  notifyDaycareOfParentMessage,
+  notifyParentsOfStaffMessage,
+} from '@/lib/messageNotifications';
 
 interface MessageThreadViewProps {
   familyId: string;
@@ -167,8 +171,31 @@ export default function MessageThreadView({
         });
       }
 
+      const sentText = text.trim();
+      const photoCount = attachments.length;
+
       setText('');
       setFiles([]);
+
+      // Fire-and-forget. The message is already saved; a failed email must not
+      // surface as a failed send or the user will resend a message that went
+      // through fine.
+      if (viewerRole === 'parent') {
+        void notifyDaycareOfParentMessage({
+          daycareId,
+          senderName,
+          text: sentText,
+          photoCount,
+        });
+      } else {
+        void notifyParentsOfStaffMessage({
+          familyId,
+          daycareId,
+          senderName,
+          text: sentText,
+          photoCount,
+        });
+      }
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code;
       console.error('Error sending message:', err);
