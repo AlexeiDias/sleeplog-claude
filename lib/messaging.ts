@@ -43,7 +43,12 @@ export const MAX_ATTACHMENTS_PER_MESSAGE = 4;
 
 export function validateAttachment(file: File): string | null {
   if (!file.type.startsWith('image/')) {
-    return `${file.name} is not an image. Only photos can be attached.`;
+    // Deliberate, not a limitation to be lifted casually. Storage download
+    // URLs bypass security rules, so any attachment is readable by anyone
+    // holding the link. That is tolerable for photos and not for documents —
+    // which is why documents get their own phase with server-side access
+    // control rather than being allowed through here.
+    return `${file.name} is not a photo. Documents can't be sent through messages yet — please contact the daycare directly.`;
   }
   if (file.size > MAX_ATTACHMENT_MB * 1024 * 1024) {
     return `${file.name} is larger than ${MAX_ATTACHMENT_MB}MB.`;

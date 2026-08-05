@@ -45,10 +45,13 @@ export default function InviteParentModal({
     setIsLoading(true);
 
     const cleanEmail = email.trim();
+    let inviteSaved = false;
 
     try {
       // Write the invite BEFORE sending the link. The invite is what actually
       // grants parent access — the emailed link only proves the address works.
+      // If the send then fails, the invite survives and Resend can retry it,
+      // which is safer than emailing a link that no invite backs.
       await setDoc(doc(db, 'parentInvites', inviteDocId(cleanEmail)), {
         email: cleanEmail,
         familyId: family.id,
@@ -60,6 +63,7 @@ export default function InviteParentModal({
         status: 'pending',
         createdAt: new Date(),
       });
+      inviteSaved = true;
 
       await sendSignInLinkToEmail(
         auth,
@@ -71,11 +75,19 @@ export default function InviteParentModal({
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code;
       console.error('Error inviting parent:', err);
-      setError(
-        code?.startsWith('auth/')
-          ? friendlyAuthError(code)
-          : 'Could not save the invitation. Please try again.'
-      );
+
+      if (!inviteSaved) {
+        setError('Could not save the invitation. Please try again.');
+      } else {
+        // Half-succeeded: the invite exists and will show as pending, but
+        // nobody was emailed. Without saying so, it looks like the parent
+        // simply has not clicked yet.
+        setError(
+          `${friendlyAuthError(code)} The invitation was saved and will show as ` +
+          `pending, but no email went out — use Resend once this is fixed, ` +
+          `rather than inviting again.`
+        );
+      }
     } finally {
       setIsLoading(false);
     }

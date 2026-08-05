@@ -281,7 +281,14 @@ export default function MessageThreadView({
         </div>
       )}
 
-      <form onSubmit={handleSend} className="p-3 border-t bg-white flex gap-2 items-end">
+      <div className="px-3 pt-2 bg-white border-t">
+        <p className="text-[11px] text-gray-400">
+          Photos only. To send a document, please contact the daycare directly —
+          secure document sharing is coming.
+        </p>
+      </div>
+
+      <form onSubmit={handleSend} className="p-3 pt-2 bg-white flex gap-2 items-end">
         <input
           ref={fileInputRef}
           type="file"
