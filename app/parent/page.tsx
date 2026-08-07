@@ -1,8 +1,8 @@
 //app/parent/page.tsx
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { getDateKey } from '@/lib/parentAuth';
@@ -27,10 +27,18 @@ interface ChildFeed {
 }
 
 const KIND_STYLES: Record<FeedKind, { icon: string; chip: string }> = {
-  sleep: { icon: '😴', chip: 'bg-indigo-100 text-indigo-800' },
-  care: { icon: '🍼', chip: 'bg-emerald-100 text-emerald-800' },
-  activity: { icon: '🎨', chip: 'bg-amber-100 text-amber-800' },
-  incident: { icon: '⚠️', chip: 'bg-red-100 text-red-800' },
+  sleep: { icon: '\u{1F634}', chip: 'bg-indigo-100 text-indigo-800' },
+  care: { icon: '\u{1F37C}', chip: 'bg-emerald-100 text-emerald-800' },
+  activity: { icon: '\u{1F3A8}', chip: 'bg-amber-100 text-amber-800' },
+  incident: { icon: '\u26A0\uFE0F', chip: 'bg-red-100 text-red-800' },
+};
+
+// Log subcollection name per feed kind. Each gets its own live listener.
+const KIND_COLLECTIONS: Record<FeedKind, string> = {
+  sleep: 'sleepLogs',
+  care: 'careLogs',
+  activity: 'activityLogs',
+  incident: 'incidentLogs',
 };
 
 function toDate(value: unknown): Date {
@@ -48,166 +56,186 @@ function formatTime(date: Date): string {
   });
 }
 
+type DocData = Record<string, unknown>;
+
+function buildItem(kind: FeedKind, id: string, data: DocData): FeedItem | null {
+  const parts: string[] = [];
+  const push = (value: unknown, prefix = '') => {
+    if (value) parts.push(prefix ? `${prefix}${value}` : String(value));
+  };
+
+  if (kind === 'sleep') {
+    const type = data.type;
+    const title =
+      type === 'start' ? 'Went down for a nap'
+      : type === 'stop' ? 'Woke up'
+      : 'Sleep check';
+    push(data.position, 'Position: ');
+    push(data.breathing, 'Breathing: ');
+    push(data.mood, 'Mood: ');
+    push(data.notes);
+    return {
+      id: `sleep-${id}`, kind, timestamp: toDate(data.timestamp), title,
+      detail: parts.join(' \u00B7 ') || undefined,
+      staffInitials: data.staffInitials as string | undefined,
+    };
+  }
+
+  if (kind === 'care') {
+    let title = 'Care';
+    if (data.type === 'diaper') {
+      title = 'Diaper change';
+      push(data.diaperType);
+    } else if (data.type === 'bottle') {
+      title = 'Bottle';
+      if (data.amount) parts.push(`${data.amount} oz`);
+    } else if (data.type === 'meal') {
+      title = 'Meal';
+      push(data.ingredients);
+      if (data.amount) parts.push(`${data.amount} oz`);
+      const nutrition = data.nutrition as { totalCalories?: number } | undefined;
+      if (nutrition?.totalCalories) {
+        parts.push(`${Math.round(nutrition.totalCalories)} cal`);
+      }
+    }
+    push(data.comments);
+    return {
+      id: `care-${id}`, kind, timestamp: toDate(data.timestamp), title,
+      detail: parts.join(' \u00B7 ') || undefined,
+      staffInitials: data.staffInitials as string | undefined,
+    };
+  }
+
+  if (kind === 'activity') {
+    if (data.deleted) return null;
+    push(data.category);
+    if (data.duration) parts.push(`${data.duration} min`);
+    push(data.notes);
+    return {
+      id: `activity-${id}`, kind, timestamp: toDate(data.timestamp),
+      title: (data.activityName as string) || 'Activity',
+      detail: parts.join(' \u00B7 ') || undefined,
+      staffInitials: data.staffInitials as string | undefined,
+    };
+  }
+
+  if (data.deleted) return null;
+  push(data.location, 'Location: ');
+  push(data.bodyPartAffected);
+  push(data.firstAidGiven, 'First aid: ');
+  return {
+    id: `incident-${id}`, kind, timestamp: toDate(data.timestamp),
+    title: `Incident \u2014 ${data.type || 'other'}`,
+    detail: [data.description, parts.join(' \u00B7 ')].filter(Boolean).join(' \u00B7 '),
+    staffInitials: data.staffInitials as string | undefined,
+  };
+}
+
 export default function ParentDailyFeedPage() {
   const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState(() => getDateKey(new Date()));
-  const [feeds, setFeeds] = useState<ChildFeed[]>([]);
+  const [children, setChildren] = useState<Child[]>([]);
+  const [itemsByChild, setItemsByChild] = useState<Record<string, FeedItem[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const loadFeed = useCallback(async () => {
+  // Raw results per child per kind, merged into itemsByChild on every snapshot.
+  const bucketsRef = useRef<Map<string, FeedItem[]>>(new Map());
+
+  // Children rarely change, so one read is enough here — it is the day's log
+  // entries that need to be live.
+  useEffect(() => {
     if (!user?.familyId) {
       setLoading(false);
       return;
     }
 
-    setLoading(true);
-    setError('');
+    let cancelled = false;
 
-    try {
-      const childrenSnapshot = await getDocs(
-        query(collection(db, 'children'), where('familyId', '==', user.familyId))
-      );
+    getDocs(query(collection(db, 'children'), where('familyId', '==', user.familyId)))
+      .then((snapshot) => {
+        if (cancelled) return;
+        setChildren(
+          snapshot.docs
+            .map((d) => ({
+              id: d.id,
+              ...d.data(),
+              dateOfBirth: toDate(d.data().dateOfBirth),
+              createdAt: toDate(d.data().createdAt),
+            }))
+            .filter((child) => !(child as Child).archived) as Child[]
+        );
+      })
+      .catch((err) => {
+        console.error('Error loading children:', err);
+        if (!cancelled) setError('We could not load your children. Please try again.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
-      // Archived children are filtered client-side, matching the dashboard —
-      // older child documents predate the archived field entirely.
-      const children = childrenSnapshot.docs
-        .map((childDoc) => ({
-          id: childDoc.id,
-          ...childDoc.data(),
-          dateOfBirth: toDate(childDoc.data().dateOfBirth),
-          createdAt: toDate(childDoc.data().createdAt),
-        }))
-        .filter((child) => !(child as Child).archived) as Child[];
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.familyId]);
 
-      const dateKey = selectedDate;
+  const childIdKey = useMemo(() => children.map((c) => c.id).join(','), [children]);
 
-      const results = await Promise.all(
-        children.map(async (child) => {
-          const [sleepSnap, careSnap, activitySnap, incidentSnap] =
-            await Promise.all([
-              getDocs(collection(db, 'children', child.id, 'sleepLogs', dateKey, 'entries')),
-              getDocs(collection(db, 'children', child.id, 'careLogs', dateKey, 'entries')),
-              getDocs(collection(db, 'children', child.id, 'activityLogs', dateKey, 'entries')),
-              getDocs(collection(db, 'children', child.id, 'incidentLogs', dateKey, 'entries')),
-            ]);
-
-          const items: FeedItem[] = [];
-
-          sleepSnap.forEach((entryDoc) => {
-            const data = entryDoc.data();
-            const label =
-              data.type === 'start'
-                ? 'Went down for a nap'
-                : data.type === 'stop'
-                ? 'Woke up'
-                : 'Sleep check';
-            const parts: string[] = [];
-            if (data.position) parts.push(`Position: ${data.position}`);
-            if (data.breathing) parts.push(`Breathing: ${data.breathing}`);
-            if (data.mood) parts.push(`Mood: ${data.mood}`);
-            if (data.notes) parts.push(data.notes);
-
-            items.push({
-              id: `sleep-${entryDoc.id}`,
-              kind: 'sleep',
-              timestamp: toDate(data.timestamp),
-              title: label,
-              detail: parts.join(' · ') || undefined,
-              staffInitials: data.staffInitials,
-            });
-          });
-
-          careSnap.forEach((entryDoc) => {
-            const data = entryDoc.data();
-            let title = 'Care';
-            const parts: string[] = [];
-
-            if (data.type === 'diaper') {
-              title = 'Diaper change';
-              if (data.diaperType) parts.push(String(data.diaperType));
-            } else if (data.type === 'bottle') {
-              title = 'Bottle';
-              if (data.amount) parts.push(`${data.amount} oz`);
-            } else if (data.type === 'meal') {
-              title = 'Meal';
-              if (data.ingredients) parts.push(String(data.ingredients));
-              if (data.amount) parts.push(`${data.amount} oz`);
-              if (data.nutrition?.totalCalories) {
-                parts.push(`${Math.round(data.nutrition.totalCalories)} cal`);
-              }
-            }
-
-            if (data.comments) parts.push(String(data.comments));
-
-            items.push({
-              id: `care-${entryDoc.id}`,
-              kind: 'care',
-              timestamp: toDate(data.timestamp),
-              title,
-              detail: parts.join(' · ') || undefined,
-              staffInitials: data.staffInitials,
-            });
-          });
-
-          activitySnap.forEach((entryDoc) => {
-            const data = entryDoc.data();
-            if (data.deleted) return;
-            const parts: string[] = [];
-            if (data.category) parts.push(String(data.category));
-            if (data.duration) parts.push(`${data.duration} min`);
-            if (data.notes) parts.push(String(data.notes));
-
-            items.push({
-              id: `activity-${entryDoc.id}`,
-              kind: 'activity',
-              timestamp: toDate(data.timestamp),
-              title: data.activityName || 'Activity',
-              detail: parts.join(' · ') || undefined,
-              staffInitials: data.staffInitials,
-            });
-          });
-
-          incidentSnap.forEach((entryDoc) => {
-            const data = entryDoc.data();
-            if (data.deleted) return;
-            const parts: string[] = [];
-            if (data.location) parts.push(`Location: ${data.location}`);
-            if (data.bodyPartAffected) parts.push(String(data.bodyPartAffected));
-            if (data.firstAidGiven) parts.push(`First aid: ${data.firstAidGiven}`);
-
-            items.push({
-              id: `incident-${entryDoc.id}`,
-              kind: 'incident',
-              timestamp: toDate(data.timestamp),
-              title: `Incident — ${data.type || 'other'}`,
-              detail: [data.description, parts.join(' · ')]
-                .filter(Boolean)
-                .join(' · '),
-              staffInitials: data.staffInitials,
-            });
-          });
-
-          items.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-
-          return { child, items };
-        })
-      );
-
-      setFeeds(results);
-    } catch (err) {
-      console.error('Error loading parent feed:', err);
-      setError(
-        'We could not load your child’s day. Please try again, or contact your daycare if this keeps happening.'
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.familyId, selectedDate]);
-
+  // Live listeners on each log subcollection, so an entry logged by staff shows
+  // up without the parent switching tabs to force a refetch.
   useEffect(() => {
-    loadFeed();
-  }, [loadFeed]);
+    if (children.length === 0) return;
+
+    bucketsRef.current = new Map();
+    setItemsByChild({});
+
+    const flush = () => {
+      const merged: Record<string, FeedItem[]> = {};
+      bucketsRef.current.forEach((items, key) => {
+        const childId = key.split('::')[0];
+        merged[childId] = (merged[childId] || []).concat(items);
+      });
+      Object.values(merged).forEach((items) =>
+        items.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
+      );
+      setItemsByChild(merged);
+    };
+
+    const unsubscribes = children.flatMap((child) =>
+      (Object.keys(KIND_COLLECTIONS) as FeedKind[]).map((kind) =>
+        onSnapshot(
+          collection(
+            db, 'children', child.id, KIND_COLLECTIONS[kind], selectedDate, 'entries'
+          ),
+          (snapshot) => {
+            bucketsRef.current.set(
+              `${child.id}::${kind}`,
+              snapshot.docs
+                .map((d) => buildItem(kind, d.id, d.data() as DocData))
+                .filter((item): item is FeedItem => item !== null)
+            );
+            flush();
+          },
+          (err) => {
+            console.error(`Feed listener error (${kind}):`, err);
+            setError(
+              'We could not load part of your child\u2019s day. Please contact your daycare if this keeps happening.'
+            );
+          }
+        )
+      )
+    );
+
+    return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
+    // childIdKey stands in for the children array, whose identity changes on
+    // every load even when the same children come back.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [childIdKey, selectedDate]);
+
+  const feeds: ChildFeed[] = children.map((child) => ({
+    child,
+    items: itemsByChild[child.id] || [],
+  }));
 
   const isToday = selectedDate === getDateKey(new Date());
 
