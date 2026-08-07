@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Child, SleepLogEntry } from '@/types';
 import { collection, query, getDocs, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { getDateKey } from '@/lib/dateKeys';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface SleepAnalyticsProps {
@@ -37,15 +38,22 @@ export default function SleepAnalytics({ child }: SleepAnalyticsProps) {
       for (let i = 6; i >= 0; i--) {
         const date = new Date(today);
         date.setDate(date.getDate() - i);
-        const dateStr = date.toISOString().split('T')[0];
+        // Local date key. toISOString() is UTC and lands on tomorrow's key
+        // from ~5pm Pacific, querying days that do not exist.
+        const dateStr = getDateKey(date);
 
         const logsRef = collection(db, 'children', child.id, 'sleepLogs', dateStr, 'entries');
         const snapshot = await getDocs(logsRef);
 
-        const entries = snapshot.docs.map(doc => ({
+        // Sorted by timestamp before pairing start/stop below. Firestore
+        // returns documents in ID order, and entry IDs use different prefixes
+        // depending on which screen wrote them, so ID order is not reliably
+        // chronological once more than one source is involved.
+        const entries = (snapshot.docs.map(doc => ({
           ...doc.data(),
           timestamp: doc.data().timestamp?.toDate() || new Date(),
-        })) as SleepLogEntry[];
+        })) as SleepLogEntry[])
+          .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
         const { totalMinutes, sessions } = calculateDayStats(entries);
 

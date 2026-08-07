@@ -23,15 +23,9 @@ export function parentActionCodeSettings(origin: string): ActionCodeSettings {
   };
 }
 
-// Local-time date key (YYYY-MM-DD), matching how logs are written elsewhere in
-// the app. Deliberately NOT toISOString(), which is UTC and would land on the
-// wrong day for evening entries in Pacific time.
-export function getDateKey(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+// Re-exported from the canonical helper so there is one implementation of the
+// local-time date key, not several that can drift apart.
+export { getDateKey } from '@/lib/dateKeys';
 
 // Turns a Firebase auth error code into something a parent can act on.
 export function friendlyAuthError(code: string | undefined): string {

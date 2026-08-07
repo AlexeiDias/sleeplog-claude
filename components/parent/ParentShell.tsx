@@ -117,6 +117,7 @@ export default function ParentShell({
         <div className="max-w-3xl mx-auto px-4 flex gap-1">
           {[
             { href: '/parent', label: 'Today', dot: false },
+            { href: '/parent/sleep', label: 'Sleep', dot: false },
             { href: '/parent/messages', label: 'Messages', dot: hasUnread },
             { href: '/parent/media', label: 'Photos', dot: false },
           ].map((tab) => {

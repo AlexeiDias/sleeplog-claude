@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { getDateKey } from '@/lib/dateKeys';
 import Button from '@/components/Button';
 import Navbar from '@/components/Navbar';
 import SleepAnalytics from '@/components/SleepAnalytics';
@@ -76,7 +77,8 @@ export default function AnalyticsPage() {
         for (let i = 0; i < 7; i++) {
           const date = new Date(today);
           date.setDate(date.getDate() - i);
-          const dateStr = date.toISOString().split('T')[0];
+          // Local date key, matching how the logs are written.
+          const dateStr = getDateKey(date);
 
           const logsRef = collection(db, 'children', child.id, 'sleepLogs', dateStr, 'entries');
           const snapshot = await getDocs(logsRef);
@@ -103,7 +105,7 @@ export default function AnalyticsPage() {
       // Export to CSV
       const startDate = new Date(today);
       startDate.setDate(startDate.getDate() - 6);
-      const dateRange = `${startDate.toISOString().split('T')[0]}_to_${today.toISOString().split('T')[0]}`;
+      const dateRange = `${getDateKey(startDate)}_to_${getDateKey(today)}`;
       
       exportAllChildrenToCSV(allData, dateRange);
       alert('CSV exported successfully!');
