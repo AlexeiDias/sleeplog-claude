@@ -11,6 +11,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
+import { useAuth } from '@/contexts/AuthContext';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
 import {
@@ -23,6 +24,7 @@ type Phase = 'checking' | 'needs-email' | 'working' | 'error';
 
 export default function ParentFinishPage() {
   const router = useRouter();
+  const { refreshUser } = useAuth();
   const [phase, setPhase] = useState<Phase>('checking');
   const [error, setError] = useState('');
   const [emailInput, setEmailInput] = useState('');
@@ -109,6 +111,13 @@ export default function ParentFinishPage() {
           console.error('Could not mark invite as accepted:', markErr);
         }
 
+        // AuthContext looked for this profile a moment ago, before it existed,
+        // and is still holding user = null. Without this refresh the portal
+        // sees "authenticated but no profile" — which is what revocation looks
+        // like — and shows the access-removed screen to a parent who just
+        // successfully signed in.
+        await refreshUser();
+
         router.replace('/parent');
       } catch (err: unknown) {
         const code = (err as { code?: string })?.code;
@@ -117,7 +126,7 @@ export default function ParentFinishPage() {
         setError(friendlyAuthError(code));
       }
     },
-    [router]
+    [router, refreshUser]
   );
 
   useEffect(() => {

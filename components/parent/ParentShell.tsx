@@ -1,7 +1,7 @@
 //components/parent/ParentShell.tsx
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,18 +18,39 @@ export default function ParentShell({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading: authLoading, logout } = useAuth();
+  const { user, loading: authLoading, logout, refreshUser } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const hasUnread = useParentUnread(user?.familyId);
 
   const isPublicRoute = PUBLIC_PARENT_ROUTES.includes(pathname);
 
-  // Signed in to Firebase but with no user profile — which is exactly what
-  // revocation leaves behind, since it deletes the document and not the login.
-  // Redirecting would send them to a sign-in page they can sign in from,
-  // straight back to here.
-  const accessRemoved = !authLoading && !user && Boolean(auth.currentUser);
+  // Signed in to Firebase but with no user profile — which is what revocation
+  // leaves behind, since it deletes the document and not the login.
+  //
+  // But it is also what a brand new parent looks like for a moment: the profile
+  // is created during sign-in, after AuthContext has already looked for it and
+  // found nothing. Declaring access removed immediately would greet a parent
+  // who just signed in successfully with a message saying they were revoked.
+  // So re-check once before believing it.
+  const missingProfile = !authLoading && !user && Boolean(auth.currentUser);
+  const [recheckDone, setRecheckDone] = useState(false);
+  const accessRemoved = missingProfile && recheckDone;
+
+  useEffect(() => {
+    if (!missingProfile || recheckDone) return;
+
+    let cancelled = false;
+    refreshUser()
+      .catch((err) => console.error('Profile re-check failed:', err))
+      .finally(() => {
+        if (!cancelled) setRecheckDone(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [missingProfile, recheckDone, refreshUser]);
 
   useEffect(() => {
     if (isPublicRoute) return;
@@ -104,12 +125,23 @@ export default function ParentShell({
             <h1 className="text-lg font-bold text-blue-900">LogginCare</h1>
             <p className="text-xs text-gray-500">Parent portal</p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="text-sm text-gray-600 hover:text-gray-900 hover:underline"
-          >
-            Sign out
-          </button>
+          <div className="flex items-center gap-4">
+            {/* Always reachable, unlike the dismissible prompt on Today — a
+                parent who dismissed it still needs somewhere to set or change
+                a password. */}
+            <Link
+              href="/parent/account"
+              className="text-sm text-gray-600 hover:text-gray-900 hover:underline"
+            >
+              Account
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="text-sm text-gray-600 hover:text-gray-900 hover:underline"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
       </header>
 
