@@ -50,6 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           firstName: userData.firstName,
           lastName: userData.lastName,
           familyId: userData.familyId, // Parents only
+          hasPassword: userData.hasPassword, // Parents only
           createdAt: userData.createdAt?.toDate() || new Date(),
         };
       }

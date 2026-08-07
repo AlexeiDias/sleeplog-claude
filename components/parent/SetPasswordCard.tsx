@@ -3,7 +3,9 @@
 
 import { useState, useEffect, FormEvent } from 'react';
 import { updatePassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
+import { useAuth } from '@/contexts/AuthContext';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
 
@@ -22,6 +24,7 @@ const DISMISSED_KEY = 'loggincare_password_prompt_dismissed';
  * parents who want the app icon.
  */
 export default function SetPasswordCard() {
+  const { user, refreshUser } = useAuth();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [open, setOpen] = useState(false);
@@ -37,7 +40,11 @@ export default function SetPasswordCard() {
     setDismissed(Boolean(window.localStorage.getItem(DISMISSED_KEY)));
   }, []);
 
-  if (dismissed || done) return null;
+  // Already has a password — nothing to prompt for. This matters because the
+  // Home Screen app has storage separate from Safari, so the dismissed flag
+  // does not travel with the account and the prompt would otherwise reappear
+  // there for a parent who already set one.
+  if (dismissed || done || user?.hasPassword) return null;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -59,6 +66,16 @@ export default function SetPasswordCard() {
     setSaving(true);
     try {
       await updatePassword(auth.currentUser, password);
+
+      // Recorded on the profile, not just in localStorage, so the prompt stays
+      // hidden in every browser and in the Home Screen app.
+      await setDoc(
+        doc(db, 'users', auth.currentUser.uid),
+        { hasPassword: true },
+        { merge: true }
+      );
+      await refreshUser();
+
       window.localStorage.setItem(DISMISSED_KEY, '1');
       setDone(true);
     } catch (err: unknown) {

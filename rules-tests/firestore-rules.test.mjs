@@ -165,6 +165,14 @@ await check('staff', 'non-admin CANNOT create a staff account', 'deny', () =>
 await check('profile', 'user can update their own initials', 'allow', () =>
   updateDoc(doc(as('staff_uid', 'staff@lsd.com'), 'users', 'staff_uid'), { initials: 'ZZ' }));
 
+await check('profile', 'parent CAN record hasPassword on their own profile', 'allow', () =>
+  updateDoc(doc(as('parentA_uid', 'parenta@x.com'), 'users', 'parentA_uid'),
+    { hasPassword: true }));
+
+await check('profile', 'parent CANNOT set hasPassword on another user', 'deny', () =>
+  updateDoc(doc(as('parentA_uid', 'parenta@x.com'), 'users', 'staff_uid'),
+    { hasPassword: true }));
+
 await check('profile', 'admin can clear a staff daycareId (remove staff)', 'allow', () =>
   updateDoc(doc(as('admin_uid', 'admin@lsd.com'), 'users', 'staff_removable_uid'),
     { daycareId: null }));

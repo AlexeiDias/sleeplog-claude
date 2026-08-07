@@ -12,6 +12,10 @@ export interface User {
   firstName?: string;
   lastName?: string;
   familyId?: string; // Parents only: links the parent to their family
+  // Parents only. Set when they choose a password so the Home Screen app can
+  // sign in. Firebase cannot tell us this: email-link users carry the same
+  // 'password' provider ID as users with an actual password, so we record it.
+  hasPassword?: boolean;
   createdAt: Date;
 }
 

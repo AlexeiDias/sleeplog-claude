@@ -3,7 +3,8 @@
 
 import { useState, FormEvent } from 'react';
 import { updatePassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
@@ -16,7 +17,7 @@ import Input from '@/components/Input';
  * — with nowhere to go. This page is that somewhere.
  */
 export default function ParentAccountPage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [saving, setSaving] = useState(false);
@@ -44,6 +45,16 @@ export default function ParentAccountPage() {
     setSaving(true);
     try {
       await updatePassword(auth.currentUser, password);
+
+      // Same flag the Today prompt reads, so setting a password here also
+      // stops it reappearing in the Home Screen app.
+      await setDoc(
+        doc(db, 'users', auth.currentUser.uid),
+        { hasPassword: true },
+        { merge: true }
+      );
+      await refreshUser();
+
       setSaved(true);
       setPassword('');
       setConfirm('');
