@@ -3,8 +3,13 @@
 
 import { useState, useEffect, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { sendSignInLinkToEmail, signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import {
+  sendSignInLinkToEmail,
+  signInWithEmailAndPassword,
+  signOut,
+} from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
 import {
@@ -41,8 +46,27 @@ export default function ParentLoginPage() {
 
     try {
       if (mode === 'password') {
-        await signInWithEmailAndPassword(auth, email.trim(), password);
-        router.replace('/parent');
+        const credential = await signInWithEmailAndPassword(
+          auth,
+          email.trim(),
+          password
+        );
+
+        // A revoked parent still has working Firebase credentials — revoking
+        // deletes their user document, not their login. Without this check they
+        // would sign in successfully and then be bounced back here with no
+        // explanation, over and over.
+        const profile = await getDoc(doc(db, 'users', credential.user.uid));
+
+        if (!profile.exists()) {
+          await signOut(auth);
+          setError(
+            'Your access to this portal has been removed. Please contact your daycare.'
+          );
+          return;
+        }
+
+        router.replace(profile.data().role === 'parent' ? '/parent' : '/dashboard');
         return;
       }
 
