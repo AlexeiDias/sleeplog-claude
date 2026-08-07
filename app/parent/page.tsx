@@ -7,6 +7,7 @@ import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { getDateKey } from '@/lib/parentAuth';
 import AddToHomeScreenTip from '@/components/parent/AddToHomeScreenTip';
+import SetPasswordCard from '@/components/parent/SetPasswordCard';
 import { Child } from '@/types';
 
 type FeedKind = 'sleep' | 'care' | 'activity' | 'incident';
@@ -213,6 +214,7 @@ export default function ParentDailyFeedPage() {
   return (
     <div className="space-y-6">
       <AddToHomeScreenTip />
+      <SetPasswordCard />
 
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
