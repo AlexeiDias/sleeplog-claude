@@ -104,12 +104,23 @@ export default function ParentShell({
             <h1 className="text-lg font-bold text-blue-900">LogginCare</h1>
             <p className="text-xs text-gray-500">Parent portal</p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="text-sm text-gray-600 hover:text-gray-900 hover:underline"
-          >
-            Sign out
-          </button>
+          <div className="flex items-center gap-4">
+            {/* Always reachable, unlike the dismissible prompt on Today — a
+                parent who dismissed it still needs somewhere to set or change
+                a password. */}
+            <Link
+              href="/parent/account"
+              className="text-sm text-gray-600 hover:text-gray-900 hover:underline"
+            >
+              Account
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="text-sm text-gray-600 hover:text-gray-900 hover:underline"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
       </header>
 

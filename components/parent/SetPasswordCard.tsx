@@ -91,6 +91,9 @@ export default function SetPasswordCard() {
             can&apos;t use email sign-in links, so a password lets you open it
             directly. Otherwise you can keep using links.
           </p>
+          <p className="text-xs text-gray-500 mt-1">
+            You can always do this later under <strong>Account</strong>.
+          </p>
         </div>
         <button
           onClick={dismiss}
