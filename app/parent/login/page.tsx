@@ -1,8 +1,9 @@
 //app/parent/login/page.tsx
 'use client';
 
-import { useState, FormEvent } from 'react';
-import { sendSignInLinkToEmail } from 'firebase/auth';
+import { useState, useEffect, FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
+import { sendSignInLinkToEmail, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
@@ -13,10 +14,25 @@ import {
 } from '@/lib/parentAuth';
 
 export default function ParentLoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [mode, setMode] = useState<'link' | 'password'>('link');
   const [error, setError] = useState('');
   const [sent, setSent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    // Inside an installed home-screen app, email links are useless: tapping one
+    // in Mail opens Safari, which has separate storage, so the app itself stays
+    // signed out. Default those users straight to password sign-in.
+    const standalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as unknown as { standalone?: boolean }).standalone === true;
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (standalone) setMode('password');
+  }, []);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -24,6 +40,12 @@ export default function ParentLoginPage() {
     setIsLoading(true);
 
     try {
+      if (mode === 'password') {
+        await signInWithEmailAndPassword(auth, email.trim(), password);
+        router.replace('/parent');
+        return;
+      }
+
       await sendSignInLinkToEmail(
         auth,
         email.trim(),
@@ -36,8 +58,12 @@ export default function ParentLoginPage() {
       setSent(true);
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code;
-      console.error('Parent sign-in link error:', err);
-      setError(friendlyAuthError(code));
+      console.error('Parent sign-in error:', err);
+      setError(
+        code === 'auth/invalid-credential' || code === 'auth/wrong-password'
+          ? 'That email and password do not match. If you have not set a password yet, use an email link instead.'
+          : friendlyAuthError(code)
+      );
     } finally {
       setIsLoading(false);
     }
@@ -78,8 +104,9 @@ export default function ParentLoginPage() {
         ) : (
           <>
             <p className="text-sm text-gray-600 mb-4">
-              Enter the email address your daycare has on file. We&apos;ll send you a
-              secure sign-in link — there is no password to remember.
+              {mode === 'link'
+                ? "Enter the email address your daycare has on file. We'll send you a secure sign-in link — there is no password to remember."
+                : 'Enter your email and the password you set in the portal.'}
             </p>
 
             {error && (
@@ -99,22 +126,66 @@ export default function ParentLoginPage() {
                 placeholder="you@example.com"
               />
 
+              {mode === 'password' && (
+                <Input
+                  label="Password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                />
+              )}
+
               <Button
                 type="submit"
                 variant="primary"
                 isLoading={isLoading}
                 className="w-full"
               >
-                Send sign-in link
+                {mode === 'link' ? 'Send sign-in link' : 'Sign in'}
               </Button>
             </form>
+
+            <p className="mt-4 text-center text-sm text-gray-600">
+              {mode === 'link' ? (
+                <>
+                  Using the app icon on your Home Screen?{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('password');
+                      setError('');
+                    }}
+                    className="text-blue-600 hover:underline font-medium"
+                  >
+                    Sign in with a password
+                  </button>
+                </>
+              ) : (
+                <>
+                  No password yet?{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('link');
+                      setError('');
+                    }}
+                    className="text-blue-600 hover:underline font-medium"
+                  >
+                    Email me a sign-in link
+                  </button>
+                </>
+              )}
+            </p>
           </>
         )}
 
         <p className="mt-6 text-center text-xs text-gray-500">
-          Already have access? You do not need a new invitation — just request a
-          link above with the same email address. If your daycare has not given
-          you access yet, please contact them directly.
+          Already have access? You do not need a new invitation — just sign in
+          above with the same email address. If your daycare has not given you
+          access yet, please contact them directly.
         </p>
       </div>
     </div>

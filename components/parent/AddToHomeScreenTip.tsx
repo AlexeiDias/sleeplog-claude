@@ -54,11 +54,15 @@ export default function AddToHomeScreenTip() {
             Add LogginCare to your Home Screen
           </p>
           <p className="text-blue-800">
-            Tap the Share button{' '}
-            <span aria-hidden="true">􀈂</span> at the bottom of Safari, then{' '}
-            <strong>Add to Home Screen</strong>. It opens like an app, and keeps
-            you signed in — otherwise Safari may sign you out after a week
-            without visiting.
+            Tap the Share button at the bottom of Safari, then{' '}
+            <strong>Add to Home Screen</strong>. It opens like an app and stays
+            signed in — otherwise Safari may sign you out after a week without
+            visiting.
+          </p>
+          <p className="text-blue-800 mt-2">
+            One catch: the app icon can&apos;t use email sign-in links, so{' '}
+            <strong>set a password below first</strong> — otherwise the icon will
+            open to the sign-in screen with no way through.
           </p>
         </div>
         <button
