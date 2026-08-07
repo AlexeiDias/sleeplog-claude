@@ -1,7 +1,7 @@
 //components/parent/ParentShell.tsx
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,18 +18,39 @@ export default function ParentShell({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading: authLoading, logout } = useAuth();
+  const { user, loading: authLoading, logout, refreshUser } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const hasUnread = useParentUnread(user?.familyId);
 
   const isPublicRoute = PUBLIC_PARENT_ROUTES.includes(pathname);
 
-  // Signed in to Firebase but with no user profile — which is exactly what
-  // revocation leaves behind, since it deletes the document and not the login.
-  // Redirecting would send them to a sign-in page they can sign in from,
-  // straight back to here.
-  const accessRemoved = !authLoading && !user && Boolean(auth.currentUser);
+  // Signed in to Firebase but with no user profile — which is what revocation
+  // leaves behind, since it deletes the document and not the login.
+  //
+  // But it is also what a brand new parent looks like for a moment: the profile
+  // is created during sign-in, after AuthContext has already looked for it and
+  // found nothing. Declaring access removed immediately would greet a parent
+  // who just signed in successfully with a message saying they were revoked.
+  // So re-check once before believing it.
+  const missingProfile = !authLoading && !user && Boolean(auth.currentUser);
+  const [recheckDone, setRecheckDone] = useState(false);
+  const accessRemoved = missingProfile && recheckDone;
+
+  useEffect(() => {
+    if (!missingProfile || recheckDone) return;
+
+    let cancelled = false;
+    refreshUser()
+      .catch((err) => console.error('Profile re-check failed:', err))
+      .finally(() => {
+        if (!cancelled) setRecheckDone(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [missingProfile, recheckDone, refreshUser]);
 
   useEffect(() => {
     if (isPublicRoute) return;
