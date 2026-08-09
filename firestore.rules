@@ -347,6 +347,29 @@ service cloud.firestore {
     }
 
     // ============================================
+    // PHOTO CONSENT (one per family)
+    // ============================================
+    // Document ID is the familyId, so rules authorise from the path alone and
+    // parent queries stay provable for list operations.
+    match /photoConsent/{familyId} {
+
+      // The family that it concerns, and staff in the daycare.
+      allow read: if isParentOfFamily(familyId)
+                     || (resource != null && belongsToDaycare(resource.data.daycareId));
+
+      // Only a parent of that family may answer, and only in their own name.
+      // Staff cannot answer on a family's behalf — a consent record someone
+      // else filled in is not a consent record.
+      allow create, update: if isParentOfFamily(familyId)
+                               && request.resource.data.familyId == familyId
+                               && request.resource.data.answeredBy == request.auth.uid
+                               && request.resource.data.daycareId == getUserData().daycareId;
+
+      // Never deleted — the record of what was agreed, and when, is the point.
+      allow delete: if false;
+    }
+
+    // ============================================
     // ANNOUNCEMENTS (daycare-wide)
     // ============================================
     // Scoped by daycareId, including for parents.

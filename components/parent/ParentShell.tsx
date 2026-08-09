@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { auth } from '@/lib/firebase';
 import Button from '@/components/Button';
 import { useParentUnread } from '@/components/messaging/useUnreadMessages';
+import PhotoConsentGate from '@/components/parent/PhotoConsentGate';
 
 // Routes under /parent that must stay reachable while signed out, otherwise the
 // guard below would bounce parents away from the very pages that sign them in.
@@ -118,6 +119,7 @@ export default function ParentShell({
   }
 
   return (
+    <PhotoConsentGate user={user}>
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
@@ -179,5 +181,6 @@ export default function ParentShell({
 
       <main className="max-w-3xl mx-auto px-4 py-6">{children}</main>
     </div>
+    </PhotoConsentGate>
   );
 }

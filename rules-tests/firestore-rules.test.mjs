@@ -473,6 +473,42 @@ await check('media', 'media is immutable', 'deny', () =>
     { caption: 'edited' }));
 
 // ─────────────────────────────────────────────────────────────
+// PHOTO CONSENT — only the family concerned may answer
+// ─────────────────────────────────────────────────────────────
+await check('consent', 'parent CAN record consent for their own family', 'allow', () =>
+  setDoc(doc(as('parentA_uid', 'parenta@x.com'), 'photoConsent', FAMILY_A),
+    { familyId: FAMILY_A, daycareId: DAYCARE, allowed: true,
+      answeredBy: 'parentA_uid', answeredByName: 'Parent A' }));
+
+await check('consent', 'parent CANNOT record consent for another family', 'deny', () =>
+  setDoc(doc(as('parentA_uid', 'parenta@x.com'), 'photoConsent', FAMILY_B),
+    { familyId: FAMILY_B, daycareId: DAYCARE, allowed: true,
+      answeredBy: 'parentA_uid', answeredByName: 'Parent A' }));
+
+await check('consent', 'parent CANNOT answer in someone else name', 'deny', () =>
+  setDoc(doc(as('parentA_uid', 'parenta@x.com'), 'photoConsent', FAMILY_A),
+    { familyId: FAMILY_A, daycareId: DAYCARE, allowed: true,
+      answeredBy: 'staff_uid', answeredByName: 'Staff' }));
+
+await check('consent', 'staff CANNOT answer on a family behalf', 'deny', () =>
+  setDoc(doc(as('staff_uid', 'staff@lsd.com'), 'photoConsent', FAMILY_B),
+    { familyId: FAMILY_B, daycareId: DAYCARE, allowed: true,
+      answeredBy: 'staff_uid', answeredByName: 'Staff' }));
+
+await check('consent', 'staff CAN list consent for their daycare', 'allow', () =>
+  getDocs(query(collection(as('staff_uid', 'staff@lsd.com'), 'photoConsent'),
+    where('daycareId', '==', DAYCARE))));
+
+await check('consent', 'parent CAN read their own consent record', 'allow', () =>
+  getDoc(doc(as('parentA_uid', 'parenta@x.com'), 'photoConsent', FAMILY_A)));
+
+await check('consent', 'parent CANNOT read another family consent', 'deny', () =>
+  getDoc(doc(as('parentA_uid', 'parenta@x.com'), 'photoConsent', FAMILY_B)));
+
+await check('consent', 'consent records cannot be deleted', 'deny', () =>
+  deleteDoc(doc(as('admin_uid', 'admin@lsd.com'), 'photoConsent', FAMILY_A)));
+
+// ─────────────────────────────────────────────────────────────
 // ANNOUNCEMENTS — daycare-wide by design, unlike everything else
 // ─────────────────────────────────────────────────────────────
 await testEnv.withSecurityRulesDisabled(async (ctx) => {
