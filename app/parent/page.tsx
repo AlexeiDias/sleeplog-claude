@@ -6,6 +6,7 @@ import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestor
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { getDateKey } from '@/lib/parentAuth';
+import Link from 'next/link';
 import AddToHomeScreenTip from '@/components/parent/AddToHomeScreenTip';
 import SetPasswordCard from '@/components/parent/SetPasswordCard';
 import { Child } from '@/types';
@@ -259,13 +260,21 @@ export default function ParentDailyFeedPage() {
               })}
             </p>
           </div>
-          <input
-            type="date"
-            value={selectedDate}
-            max={getDateKey(new Date())}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
+          <div className="flex items-center gap-3">
+            <input
+              type="date"
+              value={selectedDate}
+              max={getDateKey(new Date())}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <Link
+              href="/parent/reports"
+              className="text-sm text-blue-600 hover:underline whitespace-nowrap"
+            >
+              Download records
+            </Link>
+          </div>
         </div>
       </div>
 
