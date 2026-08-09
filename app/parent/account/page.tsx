@@ -8,6 +8,7 @@ import { auth, db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
+import PhotoConsentSetting from '@/components/parent/PhotoConsentSetting';
 
 /**
  * Always-available place to set or change a password.
@@ -81,6 +82,8 @@ export default function ParentAccountPage() {
           Signed in as <strong>{user?.email}</strong>
         </p>
       </div>
+
+      <PhotoConsentSetting user={user} />
 
       <div className="bg-white rounded-lg shadow p-4">
         <h3 className="font-medium text-gray-800">Password</h3>

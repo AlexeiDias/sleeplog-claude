@@ -6,6 +6,7 @@ import { User } from '@/types';
 import { postAnnouncement } from '@/lib/announcements';
 import { validateAttachment, MAX_ATTACHMENTS_PER_MESSAGE } from '@/lib/messaging';
 import Button from '@/components/Button';
+import PhotoConsentNotice from '@/components/announcements/PhotoConsentNotice';
 
 export default function AnnouncementComposer({ author }: { author: User }) {
   const [text, setText] = useState('');
@@ -59,7 +60,7 @@ export default function AnnouncementComposer({ author }: { author: User }) {
         <h3 className="font-semibold text-gray-800">New announcement</h3>
         <p className="text-xs text-gray-500">
           Goes to every family with portal access. Photos here are seen by all
-          families — make sure you have consent for any child who appears.
+          families.
         </p>
       </div>
 
@@ -81,6 +82,8 @@ export default function AnnouncementComposer({ author }: { author: User }) {
         placeholder="Field trip Friday, please pack a hat…"
         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent"
       />
+
+      {files.length > 0 && <PhotoConsentNotice daycareId={author.daycareId} />}
 
       {files.length > 0 && (
         <div className="flex gap-2 flex-wrap">

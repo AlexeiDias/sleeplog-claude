@@ -161,6 +161,24 @@ export interface Family {
   createdAt: Date;
 }
 
+// Photo consent, recorded once per family.
+//
+// Deliberately narrow: it covers only whether photos including this family's
+// children may appear in daycare-wide announcements seen by other families.
+// Photos sent privately to a family are unaffected.
+//
+// Unanswered is treated as declined everywhere it is read — silence is not
+// consent.
+export interface PhotoConsent {
+  familyId: string;
+  daycareId: string;
+  allowed: boolean;
+  answeredBy: string;      // uid of the parent who answered
+  answeredByName: string;
+  answeredAt: Date;
+  updatedAt?: Date;
+}
+
 // Child Type
 export interface Child {
   id: string;
