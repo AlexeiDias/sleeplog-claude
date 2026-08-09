@@ -390,7 +390,7 @@ service cloud.firestore {
         allow create, update: if inAnnouncementDaycare()
                                  && request.auth.uid == userId
                                  && request.resource.data.emoji in
-                                      ['\u2764\uFE0F', '\u{1F60A}', '\u{1F44F}', '\u{1F389}', '\u{1F44D}'];
+                                      ['❤️', '😊', '👏', '🎉', '👍'];
 
         allow delete: if request.auth.uid == userId;
       }
