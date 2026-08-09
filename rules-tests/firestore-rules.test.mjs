@@ -473,6 +473,88 @@ await check('media', 'media is immutable', 'deny', () =>
     { caption: 'edited' }));
 
 // ─────────────────────────────────────────────────────────────
+// ANNOUNCEMENTS — daycare-wide by design, unlike everything else
+// ─────────────────────────────────────────────────────────────
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore();
+  await setDoc(doc(db, 'announcements', 'ann_open'), {
+    daycareId: DAYCARE, authorId: 'staff_uid', authorName: 'Staff',
+    text: 'Field trip Friday', allowReplies: true,
+  });
+  await setDoc(doc(db, 'announcements', 'ann_locked'), {
+    daycareId: DAYCARE, authorId: 'staff_uid', authorName: 'Staff',
+    text: 'Photos from today', allowReplies: false,
+  });
+  await setDoc(doc(db, 'announcements', 'ann_other'), {
+    daycareId: 'daycare_someone_else', authorId: 'x', authorName: 'X',
+    text: 'Not yours', allowReplies: true,
+  });
+});
+
+await check('announce', 'parent CAN list announcements for their daycare', 'allow', () =>
+  getDocs(query(collection(as('parentA_uid', 'parenta@x.com'), 'announcements'),
+    where('daycareId', '==', DAYCARE))));
+
+await check('announce', 'parent CANNOT list another daycare announcements', 'deny', () =>
+  getDocs(query(collection(as('parentA_uid', 'parenta@x.com'), 'announcements'),
+    where('daycareId', '==', 'daycare_someone_else'))));
+
+await check('announce', 'staff CAN post an announcement', 'allow', () =>
+  setDoc(doc(as('staff_uid', 'staff@lsd.com'), 'announcements', 'ann_new'),
+    { daycareId: DAYCARE, authorId: 'staff_uid', authorName: 'Staff',
+      text: 'Hello', allowReplies: false }));
+
+await check('announce', 'parent CANNOT post an announcement', 'deny', () =>
+  setDoc(doc(as('parentA_uid', 'parenta@x.com'), 'announcements', 'ann_parent'),
+    { daycareId: DAYCARE, authorId: 'parentA_uid', authorName: 'Parent',
+      text: 'Hello everyone', allowReplies: true }));
+
+await check('announce', 'staff CANNOT forge another author', 'deny', () =>
+  setDoc(doc(as('staff_uid', 'staff@lsd.com'), 'announcements', 'ann_forged'),
+    { daycareId: DAYCARE, authorId: 'admin_uid', authorName: 'Admin',
+      text: 'Hello', allowReplies: false }));
+
+// --- reactions ---
+await check('announce', 'parent CAN react with an allowed emoji', 'allow', () =>
+  setDoc(doc(as('parentA_uid', 'parenta@x.com'),
+    'announcements', 'ann_locked', 'reactions', 'parentA_uid'),
+    { emoji: '\u2764\uFE0F', byRole: 'parent', byName: 'Parent A' }));
+
+await check('announce', 'parent CANNOT react with a disallowed emoji', 'deny', () =>
+  setDoc(doc(as('parentA_uid', 'parenta@x.com'),
+    'announcements', 'ann_locked', 'reactions', 'parentA_uid'),
+    { emoji: '\u{1F4A9}', byRole: 'parent', byName: 'Parent A' }));
+
+await check('announce', 'parent CANNOT react as someone else', 'deny', () =>
+  setDoc(doc(as('parentA_uid', 'parenta@x.com'),
+    'announcements', 'ann_locked', 'reactions', 'staff_uid'),
+    { emoji: '\u{1F44D}', byRole: 'parent', byName: 'Parent A' }));
+
+await check('announce', 'parent CAN list reactions to count them', 'allow', () =>
+  getDocs(collection(as('parentA_uid', 'parenta@x.com'),
+    'announcements', 'ann_locked', 'reactions')));
+
+// --- replies ---
+await check('announce', 'parent CAN reply when replies are allowed', 'allow', () =>
+  setDoc(doc(as('parentA_uid', 'parenta@x.com'),
+    'announcements', 'ann_open', 'replies', 'r1'),
+    { authorId: 'parentA_uid', authorName: 'Parent A', authorRole: 'parent', text: 'Yes!' }));
+
+await check('announce', 'parent CANNOT reply when replies are off', 'deny', () =>
+  setDoc(doc(as('parentA_uid', 'parenta@x.com'),
+    'announcements', 'ann_locked', 'replies', 'r2'),
+    { authorId: 'parentA_uid', authorName: 'Parent A', authorRole: 'parent', text: 'Cute!' }));
+
+await check('announce', 'staff CAN reply even when replies are off', 'allow', () =>
+  setDoc(doc(as('staff_uid', 'staff@lsd.com'),
+    'announcements', 'ann_locked', 'replies', 'r3'),
+    { authorId: 'staff_uid', authorName: 'Staff', authorRole: 'staff', text: 'Thanks' }));
+
+await check('announce', 'replies are immutable', 'deny', () =>
+  updateDoc(doc(as('parentA_uid', 'parenta@x.com'),
+    'announcements', 'ann_open', 'replies', 'r1'), { text: 'edited' }));
+
+// ─────────────────────────────────────────────────────────────
 // Kiosk paths that must stay public
 // ─────────────────────────────────────────────────────────────
 const anon = testEnv.unauthenticatedContext().firestore();
