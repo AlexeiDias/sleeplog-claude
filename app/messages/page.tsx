@@ -8,6 +8,8 @@ import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import Navbar from '@/components/Navbar';
 import MessageThreadView from '@/components/messaging/MessageThreadView';
+import AnnouncementComposer from '@/components/announcements/AnnouncementComposer';
+import AnnouncementList from '@/components/announcements/AnnouncementList';
 import { useStaffUnreadThreads } from '@/components/messaging/useUnreadMessages';
 import { Family, MessageThread } from '@/types';
 import { formatMessageTime, toDate } from '@/lib/messaging';
@@ -25,6 +27,7 @@ export default function StaffMessagesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const { unreadFamilyIds } = useStaffUnreadThreads(user?.daycareId);
+  const [view, setView] = useState<'families' | 'announcements'>('families');
 
   useEffect(() => {
     if (authLoading) return;
@@ -97,8 +100,27 @@ export default function StaffMessagesPage() {
         <div className="mb-4">
           <h1 className="text-2xl font-bold text-gray-800">Messages</h1>
           <p className="text-sm text-gray-600">
-            Conversations with families who have portal access
+            Private conversations with families, and announcements to everyone
           </p>
+        </div>
+
+        <div className="mb-4 flex gap-1 border-b">
+          {([
+            { key: 'families', label: 'Families' },
+            { key: 'announcements', label: 'Announcements' },
+          ] as const).map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setView(tab.key)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
+                view === tab.key
+                  ? 'border-blue-600 text-blue-700'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         {error && (
@@ -107,6 +129,12 @@ export default function StaffMessagesPage() {
           </div>
         )}
 
+        {view === 'announcements' ? (
+          <div className="space-y-6">
+            <AnnouncementComposer author={user} />
+            <AnnouncementList user={user} viewerRole="staff" />
+          </div>
+        ) : (
         <div className="grid md:grid-cols-[280px_1fr] gap-4">
           <div className="bg-white rounded-lg shadow overflow-hidden">
             {loading ? (
@@ -188,6 +216,7 @@ export default function StaffMessagesPage() {
             )}
           </div>
         </div>
+        )}
       </div>
     </div>
   );

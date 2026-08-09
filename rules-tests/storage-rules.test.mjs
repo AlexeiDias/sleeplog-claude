@@ -124,6 +124,16 @@ await check('messages', 'message photo over 5MB is rejected', 'deny', () =>
   uploadBytes(ref(staff(), 'messages/family_a/msg_5/huge.jpg'),
     new Uint8Array(5 * 1024 * 1024 + 1024), imageMeta));
 
+// ── Announcement photos ────────────────────────────────────────
+await check('announcements', 'staff CAN upload an announcement photo', 'allow', () =>
+  uploadBytes(ref(staff(), 'announcements/ann_1/photo.jpg'), png(), imageMeta));
+
+await check('announcements', 'signed-out CANNOT upload an announcement photo', 'deny', () =>
+  uploadBytes(ref(anon(), 'announcements/ann_2/photo.jpg'), png(), imageMeta));
+
+await check('announcements', 'non-image announcement upload is rejected', 'deny', () =>
+  uploadBytes(ref(staff(), 'announcements/ann_3/doc.pdf'), png(), pdfMeta));
+
 // ── KNOWN GAP — documented, not yet fixable without custom claims ──
 // A parent can read any child's photo, including other families'. Storage
 // rules cannot check family membership. This assertion asserts the CURRENT

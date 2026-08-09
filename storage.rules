@@ -67,6 +67,14 @@ service firebase.storage {
       allow write: if isSignedIn() && isImage() && underMb(5);
     }
 
+    // --- ANNOUNCEMENT PHOTOS ---
+    // Path: announcements/{announcementId}/{fileName}
+    // Daycare-wide by design; these are seen by every family.
+    match /announcements/{announcementId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isImage() && underMb(5);
+    }
+
     // Everything else is denied by default — Storage denies any path that no
     // match block allows. Future features (message attachments, documents)
     // must add their own explicit block here, and tests alongside it.

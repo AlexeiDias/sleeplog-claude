@@ -9,6 +9,7 @@ import { getDateKey } from '@/lib/parentAuth';
 import Link from 'next/link';
 import AddToHomeScreenTip from '@/components/parent/AddToHomeScreenTip';
 import SetPasswordCard from '@/components/parent/SetPasswordCard';
+import AnnouncementList from '@/components/announcements/AnnouncementList';
 import { Child } from '@/types';
 
 type FeedKind = 'sleep' | 'care' | 'activity' | 'incident';
@@ -244,6 +245,18 @@ export default function ParentDailyFeedPage() {
     <div className="space-y-6">
       <AddToHomeScreenTip />
       <SetPasswordCard />
+
+      {user && (
+        <div className="bg-white rounded-lg shadow p-4">
+          <h2 className="text-lg font-bold text-gray-800 mb-1">From the daycare</h2>
+          <p className="text-sm text-gray-600 mb-3">
+            News and photos shared with all families.
+          </p>
+          {/* Capped at three so announcements never push the day's entries
+              off the top of a phone screen. */}
+          <AnnouncementList user={user} viewerRole="parent" limit={3} />
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

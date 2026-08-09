@@ -97,6 +97,41 @@ export interface MediaItem {
   createdAt: Date;
 }
 
+// ============================================
+// ANNOUNCEMENTS (daycare-wide)
+// ============================================
+
+// Posted by staff to every family. Deliberately scoped by daycareId rather
+// than familyId — it is the one thing in the app addressed to everyone.
+export interface Announcement {
+  id: string;
+  daycareId: string;
+  authorId: string;
+  authorName: string;
+  text: string;
+  attachments?: MessageAttachment[];
+  allowReplies: boolean;
+  createdAt: Date;
+}
+
+// One per user per announcement; the document ID is the user's uid, so a
+// person can change or remove their own reaction and cannot add two.
+export interface AnnouncementReaction {
+  emoji: string;
+  byRole: 'parent' | 'staff';
+  byName: string;
+  createdAt: Date;
+}
+
+export interface AnnouncementReply {
+  id: string;
+  authorId: string;
+  authorName: string;
+  authorRole: 'parent' | 'staff';
+  text: string;
+  createdAt: Date;
+}
+
 // Daycare Type
 export interface Daycare {
   id: string;

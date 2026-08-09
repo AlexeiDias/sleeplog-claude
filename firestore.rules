@@ -347,6 +347,70 @@ service cloud.firestore {
     }
 
     // ============================================
+    // ANNOUNCEMENTS (daycare-wide)
+    // ============================================
+    // Scoped by daycareId, including for parents.
+    //
+    // Read that carefully: everywhere else in this file, authorising a parent
+    // by daycareId is the bug that let parents see other families' records.
+    // Here it is correct and intentional — an announcement is addressed to
+    // every family in the daycare. Nothing family-specific may ever be stored
+    // in this collection.
+    match /announcements/{announcementId} {
+
+      function announcementData() {
+        return get(/databases/$(database)/documents/announcements/$(announcementId)).data;
+      }
+
+      // Same daycare, either side. Uses only the path, so it is provable for
+      // list operations on the subcollections below.
+      function inAnnouncementDaycare() {
+        return isAuthenticated() && getUserData().daycareId == announcementData().daycareId;
+      }
+
+      allow read: if (resource != null && belongsToDaycare(resource.data.daycareId))
+                     || (resource != null
+                         && isAuthenticated()
+                         && getUserData().role == 'parent'
+                         && getUserData().daycareId == resource.data.daycareId);
+
+      // Staff and admin post; authors cannot forge who wrote it.
+      allow create: if belongsToDaycare(request.resource.data.daycareId)
+                       && request.resource.data.authorId == request.auth.uid;
+
+      allow update: if belongsToDaycare(resource.data.daycareId);
+      allow delete: if isAdmin();
+
+      // --- REACTIONS ---
+      // Document ID is the reacting user's uid: one reaction each, changeable,
+      // removable, and impossible to cast on someone else's behalf.
+      match /reactions/{userId} {
+        allow read: if inAnnouncementDaycare();
+
+        allow create, update: if inAnnouncementDaycare()
+                                 && request.auth.uid == userId
+                                 && request.resource.data.emoji in
+                                      ['❤️', '😊', '👏', '🎉', '👍'];
+
+        allow delete: if request.auth.uid == userId;
+      }
+
+      // --- REPLIES ---
+      // Parents may only reply when the post allows it. Staff always may.
+      match /replies/{replyId} {
+        allow read: if inAnnouncementDaycare();
+
+        allow create: if inAnnouncementDaycare()
+                         && request.resource.data.authorId == request.auth.uid
+                         && (getUserData().role in ['admin', 'staff']
+                             || announcementData().allowReplies == true);
+
+        allow update: if false;
+        allow delete: if isAdmin();
+      }
+    }
+
+    // ============================================
     // MEDIA (shared photo index)
     // ============================================
     // Flat index so the gallery is one query rather than a walk across
