@@ -66,7 +66,7 @@ export default function DatePicker({ selectedDate, onDateChange, label = 'Select
           value={selectedDate}
           onChange={(e) => onDateChange(e.target.value)}
           max={today}
-          className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="px-3 py-2 border border-gray-300 rounded text-gray-900 text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
 
         <button

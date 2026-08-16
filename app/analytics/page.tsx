@@ -18,7 +18,8 @@ export default function AnalyticsPage() {
   const router = useRouter();
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
-  const [exporting, setExporting] = useState(false);
+  // Holds the range currently exporting, so only that button spins.
+  const [exporting, setExporting] = useState<number | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -58,23 +59,22 @@ export default function AnalyticsPage() {
     }
   }
 
-  async function handleExportCSV() {
+  async function handleExportCSV(days: number) {
     if (children.length === 0) {
       alert('No children data to export');
       return;
     }
 
-    setExporting(true);
+    setExporting(days);
 
     try {
-      // Get last 7 days of data for all children
       const allData: Array<{ child: Child; entries: SleepLogEntry[] }> = [];
       const today = new Date();
 
       for (const child of children) {
         const childEntries: SleepLogEntry[] = [];
 
-        for (let i = 0; i < 7; i++) {
+        for (let i = 0; i < days; i++) {
           const date = new Date(today);
           date.setDate(date.getDate() - i);
           // Local date key, matching how the logs are written.
@@ -98,13 +98,13 @@ export default function AnalyticsPage() {
       }
 
       if (allData.length === 0) {
-        alert('No sleep data found in the last 7 days');
+        alert(`No sleep data found in the last ${days} days`);
         return;
       }
 
       // Export to CSV
       const startDate = new Date(today);
-      startDate.setDate(startDate.getDate() - 6);
+      startDate.setDate(startDate.getDate() - (days - 1));
       const dateRange = `${getDateKey(startDate)}_to_${getDateKey(today)}`;
       
       exportAllChildrenToCSV(allData, dateRange);
@@ -114,7 +114,7 @@ export default function AnalyticsPage() {
       console.error('Error exporting CSV:', error);
       alert('Failed to export CSV');
     } finally {
-      setExporting(false);
+      setExporting(null);
     }
   }
 
@@ -140,9 +140,21 @@ export default function AnalyticsPage() {
             <h2 className="text-3xl font-bold text-gray-800">Sleep Analytics</h2>
             <p className="text-gray-600 mt-1">Weekly trends and statistics</p>
           </div>
-          <Button variant="secondary" onClick={handleExportCSV} isLoading={exporting}>
-            📥 Export CSV (7 Days)
-          </Button>
+          {/* One click per range, matching the parent portal's download screen —
+              no date pickers to fill in for the common cases. */}
+          <div className="flex gap-2 flex-wrap">
+            {[7, 30, 90].map((days) => (
+              <Button
+                key={days}
+                variant="secondary"
+                onClick={() => handleExportCSV(days)}
+                isLoading={exporting === days}
+                disabled={exporting !== null && exporting !== days}
+              >
+                📥 Last {days} days
+              </Button>
+            ))}
+          </div>
         </div>
 
         {children.length === 0 ? (
