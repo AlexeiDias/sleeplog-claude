@@ -9,7 +9,14 @@ import { db } from '@/lib/firebase';
 import Button from '@/components/Button';
 import Navbar from '@/components/Navbar';
 import DatePicker from '@/components/DatePicker';
+import PrintRangeButtons from '@/components/PrintRangeButtons';
 import { SignInOutRecord } from '@/types';
+import {
+  fetchSignInOutRange,
+  buildSignInOutPrintHtml,
+  openPrintable,
+} from '@/lib/inspectorPrint';
+import { fetchDaycareName } from '@/lib/parentReports';
 
 // Helper function to get local date string (YYYY-MM-DD)
 function getLocalDateString(date: Date = new Date()): string {
@@ -326,6 +333,31 @@ export default function SignInOutReportsPage() {
     URL.revokeObjectURL(url);
   }
 
+  // Multi-day printout for a licensing visit. The single-day Print button above
+  // stays as it is — this is the version an inspector asks for.
+  async function handlePrintRange(days: number) {
+    if (!user?.daycareId) return;
+
+    try {
+      const rangeRecords = await fetchSignInOutRange(user.daycareId, days);
+      if (rangeRecords.length === 0) {
+        alert(`No sign-in/out records in the last ${days} days`);
+        return;
+      }
+
+      const daycareName = await fetchDaycareName(user.daycareId);
+      const opened = openPrintable(
+        buildSignInOutPrintHtml(rangeRecords, daycareName, days)
+      );
+      if (!opened) {
+        alert('Your browser blocked the print window. Allow pop-ups for loggincare.com and try again.');
+      }
+    } catch (error) {
+      console.error('Error printing sign-in/out records:', error);
+      alert('Could not build the printout. Please try again.');
+    }
+  }
+
   if (!user || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -360,12 +392,22 @@ export default function SignInOutReportsPage() {
               
               <div className="flex gap-3">
                 <Button variant="secondary" onClick={handlePrint}>
-                  🖨️ Print
+                  🖨️ Print this day
                 </Button>
                 <Button variant="secondary" onClick={exportToCSV}>
                   📥 Export CSV
                 </Button>
               </div>
+            </div>
+
+            {/* For a licensing visit: several days at once, grouped by day. */}
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <p className="text-sm font-medium text-gray-700 mb-2">
+                Print a range for an inspection
+              </p>
+              {/* 15 and 30 only: every row carries a signature image, so a
+                  90-day print runs to hundreds of pages. */}
+              <PrintRangeButtons onPrint={handlePrintRange} ranges={[15, 30]} />
             </div>
           </div>
         </div>
