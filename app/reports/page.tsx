@@ -10,6 +10,7 @@ import Button from '@/components/Button';
 import Navbar from '@/components/Navbar';
 import DatePicker from '@/components/DatePicker';
 import HistoricalChildCard from '@/components/HistoricalChildCard';
+import SleepExportButtons from '@/components/SleepExportButtons';
 import { Child } from '@/types';
 import Link from 'next/link';
 
@@ -88,7 +89,12 @@ export default function ReportsPage() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
-          <h2 className="text-3xl font-bold text-gray-800 mb-4">Daily Sleep Reports</h2>
+          <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
+            <h2 className="text-3xl font-bold text-gray-800">Daily Sleep Reports</h2>
+            {/* Same three presets as the parent portal, here as well as on
+                Analytics — staff go looking on whichever page they are on. */}
+            <SleepExportButtons childrenList={children} />
+          </div>
           
           {/* Date Picker */}
           <div className="bg-white rounded-lg shadow p-6 mb-6">
