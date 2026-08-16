@@ -9,6 +9,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 import { Message, MessageAttachment, User } from '@/types';
 import Button from '@/components/Button';
+import AttachmentPreview from '@/components/AttachmentPreview';
 import {
   attachmentPath, displayName, formatMessageTime, toDate,
   validateAttachment, MAX_ATTACHMENTS_PER_MESSAGE,
@@ -311,23 +312,11 @@ export default function MessageThreadView({
       )}
 
       {files.length > 0 && (
-        <div className="px-4 pt-3 flex gap-2 flex-wrap border-t">
-          {files.map((file, index) => (
-            <div
-              key={`${file.name}-${index}`}
-              className="flex items-center gap-2 text-xs bg-gray-100 rounded-full pl-3 pr-2 py-1"
-            >
-              <span className="truncate max-w-[140px]">{file.name}</span>
-              <button
-                type="button"
-                onClick={() => setFiles(files.filter((_, i) => i !== index))}
-                className="text-gray-500 hover:text-gray-800"
-                aria-label={`Remove ${file.name}`}
-              >
-                ×
-              </button>
-            </div>
-          ))}
+        <div className="px-4 pt-3 border-t">
+          <AttachmentPreview
+            files={files}
+            onRemove={(index) => setFiles(files.filter((_, i) => i !== index))}
+          />
         </div>
       )}
 

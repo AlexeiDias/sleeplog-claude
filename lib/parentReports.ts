@@ -14,6 +14,7 @@ import { collection, doc, getDoc, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getDateKey } from '@/lib/dateKeys';
 import { Child } from '@/types';
+import { formatAge, formatDOB } from '@/lib/childDisplay';
 
 export interface LogRow {
   dateKey: string;
@@ -218,6 +219,13 @@ export function buildRangeHtml(
       </table>`)
     .join('');
 
+  // Photo is embedded by URL. Firebase download URLs carry their own token and
+  // resolve without a session, so the report still shows the photo when opened
+  // from a saved file or sent to a doctor.
+  const photo = child.photoUrl
+    ? `<img class="avatar" src="${child.photoUrl}" alt="" />`
+    : '';
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -229,7 +237,9 @@ export function buildRangeHtml(
   h1 { color: #1e3a8a; margin: 0 0 4px; font-size: 24px; }
   h2 { font-size: 15px; margin: 28px 0 8px; padding-bottom: 4px;
        border-bottom: 2px solid #e5e7eb; page-break-after: avoid; }
-  .meta { color: #6b7280; font-size: 13px; margin-bottom: 24px; }
+  .meta { color: #6b7280; font-size: 13px; margin: 0; }
+  .header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+  .avatar { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; }
   table { width: 100%; border-collapse: collapse; font-size: 13px;
           page-break-inside: auto; }
   th { text-align: left; background: #f3f4f6; padding: 6px 8px; font-weight: 600; }
@@ -243,12 +253,18 @@ export function buildRangeHtml(
 </style>
 </head>
 <body>
-  <h1>${escapeHtml(child.name)}</h1>
-  <p class="meta">
-    ${escapeHtml(daycareName)}<br />
-    Care record — ${escapeHtml(rangeLabel)}<br />
-    Generated ${new Date().toLocaleString('en-US')}
-  </p>
+  <div class="header">
+    ${photo}
+    <div>
+      <h1>${escapeHtml(child.name)}</h1>
+      <p class="meta">
+        ${escapeHtml(formatAge(child.dateOfBirth))} · born ${escapeHtml(formatDOB(child.dateOfBirth))}<br />
+        ${escapeHtml(daycareName)}<br />
+        Care record — ${escapeHtml(rangeLabel)}<br />
+        Generated ${new Date().toLocaleString('en-US')}
+      </p>
+    </div>
+  </div>
   ${days || '<p class="empty">No entries were recorded in this period.</p>'}
   <p class="note">
     This record reflects care logged by staff at the times shown. It is designed

@@ -9,6 +9,7 @@ import { auth } from '@/lib/firebase';
 import Button from '@/components/Button';
 import { useParentUnread } from '@/components/messaging/useUnreadMessages';
 import PhotoConsentGate from '@/components/parent/PhotoConsentGate';
+import ChildStrip from '@/components/parent/ChildStrip';
 
 // Routes under /parent that must stay reachable while signed out, otherwise the
 // guard below would bounce parents away from the very pages that sign them in.
@@ -146,6 +147,8 @@ export default function ParentShell({
           </div>
         </div>
       </header>
+
+      <ChildStrip familyId={user.familyId} />
 
       <nav className="bg-white border-b">
         <div className="max-w-3xl mx-auto px-4 flex gap-1">

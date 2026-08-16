@@ -15,13 +15,23 @@ export default function Navbar() {
   const { count: unreadCount } = useStaffUnreadThreads(user?.daycareId);
   const [isReportsOpen, setIsReportsOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const reportsDropdownRef = useRef<HTMLDivElement>(null);
+  // Separate refs per breakpoint. Both dropdowns are always mounted (they are
+  // hidden with CSS, not unmounted), so sharing one ref meant the mobile
+  // element won and desktop clicks were treated as clicks outside.
+  const desktopReportsRef = useRef<HTMLDivElement>(null);
+  const mobileReportsRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (reportsDropdownRef.current && !reportsDropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const insideDesktop = desktopReportsRef.current?.contains(target);
+      const insideMobile = mobileReportsRef.current?.contains(target);
+
+      // Only close when the click is outside BOTH, or the visible dropdown
+      // closes as soon as it opens.
+      if (!insideDesktop && !insideMobile) {
         setIsReportsOpen(false);
       }
       if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
@@ -58,7 +68,7 @@ export default function Navbar() {
               </Link>
               
               {/* Reports Dropdown */}
-              <div className="relative" ref={reportsDropdownRef}>
+              <div className="relative" ref={desktopReportsRef}>
                 <button
                   onClick={() => setIsReportsOpen(!isReportsOpen)}
                   className="text-gray-600 hover:text-gray-900 flex items-center focus:outline-none"
@@ -111,7 +121,7 @@ export default function Navbar() {
               </Link>
               
               {/* Reports Dropdown - Mobile */}
-              <div className="relative" ref={reportsDropdownRef}>
+              <div className="relative" ref={mobileReportsRef}>
                 <button
                   onClick={() => setIsReportsOpen(!isReportsOpen)}
                   className="text-gray-600 hover:text-gray-900 flex items-center focus:outline-none text-sm"

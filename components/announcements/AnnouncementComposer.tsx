@@ -6,6 +6,7 @@ import { User } from '@/types';
 import { postAnnouncement } from '@/lib/announcements';
 import { validateAttachment, MAX_ATTACHMENTS_PER_MESSAGE } from '@/lib/messaging';
 import Button from '@/components/Button';
+import AttachmentPreview from '@/components/AttachmentPreview';
 import PhotoConsentNotice from '@/components/announcements/PhotoConsentNotice';
 
 export default function AnnouncementComposer({ author }: { author: User }) {
@@ -85,26 +86,10 @@ export default function AnnouncementComposer({ author }: { author: User }) {
 
       {files.length > 0 && <PhotoConsentNotice daycareId={author.daycareId} />}
 
-      {files.length > 0 && (
-        <div className="flex gap-2 flex-wrap">
-          {files.map((file, index) => (
-            <span
-              key={`${file.name}-${index}`}
-              className="flex items-center gap-2 text-xs bg-gray-100 rounded-full pl-3 pr-2 py-1"
-            >
-              <span className="truncate max-w-[160px]">{file.name}</span>
-              <button
-                type="button"
-                onClick={() => setFiles(files.filter((_, i) => i !== index))}
-                className="text-gray-500 hover:text-gray-800"
-                aria-label={`Remove ${file.name}`}
-              >
-                ×
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
+      <AttachmentPreview
+        files={files}
+        onRemove={(index) => setFiles(files.filter((_, i) => i !== index))}
+      />
 
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
