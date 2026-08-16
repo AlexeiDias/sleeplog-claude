@@ -10,8 +10,17 @@ import Button from '@/components/Button';
 import Navbar from '@/components/Navbar';
 import DatePicker from '@/components/DatePicker';
 import HistoricalChildCard from '@/components/HistoricalChildCard';
+import SleepExportButtons from '@/components/SleepExportButtons';
+import PrintRangeButtons from '@/components/PrintRangeButtons';
 import { Child } from '@/types';
 import Link from 'next/link';
+import {
+  fetchSleepRange,
+  buildSleepPrintHtml,
+  lastNDateKeys,
+  openPrintable,
+} from '@/lib/inspectorPrint';
+import { fetchDaycareName } from '@/lib/parentReports';
 
 // Helper function to get local date string (YYYY-MM-DD)
 function getLocalDateString(date: Date = new Date()): string {
@@ -67,6 +76,29 @@ export default function ReportsPage() {
     }
   }
 
+  // Inspectors ask for the sleep logs on paper. One click per range, no date
+  // range to fill in while someone is standing at the desk.
+  async function handlePrintSleep(days: number) {
+    if (children.length === 0) {
+      alert('No children to print');
+      return;
+    }
+
+    try {
+      const ranges = await fetchSleepRange(children, lastNDateKeys(days));
+      const daycareName = user?.daycareId
+        ? await fetchDaycareName(user.daycareId)
+        : '';
+      const opened = openPrintable(buildSleepPrintHtml(ranges, daycareName, days));
+      if (!opened) {
+        alert('Your browser blocked the print window. Allow pop-ups for loggincare.com and try again.');
+      }
+    } catch (error) {
+      console.error('Error printing sleep logs:', error);
+      alert('Could not build the printout. Please try again.');
+    }
+  }
+
   if (!user || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -88,7 +120,15 @@ export default function ReportsPage() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
-          <h2 className="text-3xl font-bold text-gray-800 mb-4">Daily Sleep Reports</h2>
+          <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
+            <h2 className="text-3xl font-bold text-gray-800">Daily Sleep Reports</h2>
+            {/* Same three presets as the parent portal, here as well as on
+                Analytics — staff go looking on whichever page they are on. */}
+            <div className="flex flex-wrap gap-2">
+              <PrintRangeButtons onPrint={handlePrintSleep} />
+              <SleepExportButtons childrenList={children} />
+            </div>
+          </div>
           
           {/* Date Picker */}
           <div className="bg-white rounded-lg shadow p-6 mb-6">

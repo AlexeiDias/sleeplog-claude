@@ -6,20 +6,17 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { getDateKey } from '@/lib/dateKeys';
 import Button from '@/components/Button';
 import Navbar from '@/components/Navbar';
 import SleepAnalytics from '@/components/SleepAnalytics';
-import { Child, SleepLogEntry } from '@/types';
-import { exportAllChildrenToCSV } from '@/utils/csvExport';
+import SleepExportButtons from '@/components/SleepExportButtons';
+import { Child } from '@/types';
 
 export default function AnalyticsPage() {
   const { user } = useAuth();
   const router = useRouter();
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
-  // Holds the range currently exporting, so only that button spins.
-  const [exporting, setExporting] = useState<number | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -59,65 +56,6 @@ export default function AnalyticsPage() {
     }
   }
 
-  async function handleExportCSV(days: number) {
-    if (children.length === 0) {
-      alert('No children data to export');
-      return;
-    }
-
-    setExporting(days);
-
-    try {
-      const allData: Array<{ child: Child; entries: SleepLogEntry[] }> = [];
-      const today = new Date();
-
-      for (const child of children) {
-        const childEntries: SleepLogEntry[] = [];
-
-        for (let i = 0; i < days; i++) {
-          const date = new Date(today);
-          date.setDate(date.getDate() - i);
-          // Local date key, matching how the logs are written.
-          const dateStr = getDateKey(date);
-
-          const logsRef = collection(db, 'children', child.id, 'sleepLogs', dateStr, 'entries');
-          const snapshot = await getDocs(logsRef);
-
-          const entries = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            timestamp: doc.data().timestamp?.toDate() || new Date(),
-          })) as SleepLogEntry[];
-
-          childEntries.push(...entries);
-        }
-
-        if (childEntries.length > 0) {
-          allData.push({ child, entries: childEntries });
-        }
-      }
-
-      if (allData.length === 0) {
-        alert(`No sleep data found in the last ${days} days`);
-        return;
-      }
-
-      // Export to CSV
-      const startDate = new Date(today);
-      startDate.setDate(startDate.getDate() - (days - 1));
-      const dateRange = `${getDateKey(startDate)}_to_${getDateKey(today)}`;
-      
-      exportAllChildrenToCSV(allData, dateRange);
-      alert('CSV exported successfully!');
-
-    } catch (error) {
-      console.error('Error exporting CSV:', error);
-      alert('Failed to export CSV');
-    } finally {
-      setExporting(null);
-    }
-  }
-
   if (!user || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -142,19 +80,7 @@ export default function AnalyticsPage() {
           </div>
           {/* One click per range, matching the parent portal's download screen —
               no date pickers to fill in for the common cases. */}
-          <div className="flex gap-2 flex-wrap">
-            {[7, 30, 90].map((days) => (
-              <Button
-                key={days}
-                variant="secondary"
-                onClick={() => handleExportCSV(days)}
-                isLoading={exporting === days}
-                disabled={exporting !== null && exporting !== days}
-              >
-                📥 Last {days} days
-              </Button>
-            ))}
-          </div>
+          <SleepExportButtons childrenList={children} />
         </div>
 
         {children.length === 0 ? (
