@@ -18,7 +18,7 @@ import {
   fetchSleepRange,
   buildSleepPrintHtml,
   lastNDateKeys,
-  openPrintable,
+  openPrintDocument,
 } from '@/lib/inspectorPrint';
 import { fetchDaycareName } from '@/lib/parentReports';
 
@@ -89,7 +89,7 @@ export default function ReportsPage() {
       const daycareName = user?.daycareId
         ? await fetchDaycareName(user.daycareId)
         : '';
-      const opened = openPrintable(buildSleepPrintHtml(ranges, daycareName, days));
+      const opened = openPrintDocument(buildSleepPrintHtml(ranges, daycareName, days));
       if (!opened) {
         alert('Your browser blocked the print window. Allow pop-ups for loggincare.com and try again.');
       }

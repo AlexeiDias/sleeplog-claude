@@ -14,7 +14,7 @@ import { SignInOutRecord } from '@/types';
 import {
   fetchSignInOutRange,
   buildSignInOutPrintHtml,
-  openPrintable,
+  openPrintDocument,
 } from '@/lib/inspectorPrint';
 import { fetchDaycareName } from '@/lib/parentReports';
 
@@ -346,7 +346,7 @@ export default function SignInOutReportsPage() {
       }
 
       const daycareName = await fetchDaycareName(user.daycareId);
-      const opened = openPrintable(
+      const opened = openPrintDocument(
         buildSignInOutPrintHtml(rangeRecords, daycareName, days)
       );
       if (!opened) {

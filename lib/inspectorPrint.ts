@@ -6,11 +6,28 @@
 import { collection, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getDateKey } from '@/lib/dateKeys';
-import { dateKeysBetween, openPrintable } from '@/lib/parentReports';
+import { dateKeysBetween } from '@/lib/parentReports';
 import { formatAge, formatDOB } from '@/lib/childDisplay';
 import { Child, SleepLogEntry, SignInOutRecord } from '@/types';
 
-export { openPrintable };
+/**
+ * Opens the printable document in a new tab.
+ *
+ * Unlike the parent-portal printout, this one does NOT call print() on a timer.
+ * These documents embed child photos and signature images loaded from Storage,
+ * and asking the browser to print before they arrive leaves the print dialog
+ * sitting on "Looking for printer" with nothing to render. The document prints
+ * itself once its images have settled, and carries its own Print button as a
+ * fallback.
+ */
+export function openPrintDocument(html: string): boolean {
+  const win = window.open('', '_blank');
+  if (!win) return false; // popup blocked, or standalone app with no tabs
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  return true;
+}
 
 /** The three ranges offered as one-click buttons. */
 export const PRINT_RANGES = [15, 30, 90];
@@ -177,14 +194,52 @@ const PRINT_CSS = `
   .sig { max-height: 34px; max-width: 110px; border: 1px solid #ddd; border-radius: 3px; }
   .footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #ddd;
             color: #666; font-size: 10px; text-align: center; }
-  @media print { body { padding: 12px; } }
+  .toolbar { position: sticky; top: 0; background: #eef2ff; border: 1px solid #c7d2fe;
+             border-radius: 6px; padding: 10px 12px; margin-bottom: 16px;
+             display: flex; align-items: center; gap: 12px; }
+  .toolbar button { font: inherit; font-weight: bold; padding: 6px 14px; border-radius: 5px;
+                    border: 0; background: #4f46e5; color: #fff; cursor: pointer; }
+  .toolbar span { color: #3730a3; font-size: 11px; }
+  @media print { body { padding: 12px; } .no-print { display: none !important; } }
 `;
+
+// Print once the images have actually arrived. A child photo or a signature
+// still loading when print() fires prints as a blank box, or hangs the dialog.
+// The 8s cap means one unreachable image cannot block the whole document.
+const AUTO_PRINT_SCRIPT = `
+<script>
+(function () {
+  var started = false;
+  function go() {
+    if (started) return;
+    started = true;
+    setTimeout(function () { window.print(); }, 150);
+  }
+  function whenImagesSettle() {
+    var pending = [].slice.call(document.images).filter(function (img) { return !img.complete; });
+    if (!pending.length) return go();
+    var left = pending.length;
+    function done() { if (--left <= 0) go(); }
+    pending.forEach(function (img) {
+      img.addEventListener('load', done);
+      img.addEventListener('error', done);
+    });
+    setTimeout(go, 8000);
+  }
+  if (document.readyState === 'complete') whenImagesSettle();
+  else window.addEventListener('load', whenImagesSettle);
+})();
+<\/script>`;
 
 function docShell(title: string, subtitle: string, body: string, footNote: string): string {
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8" /><title>${escapeHtml(title)}</title>
 <style>${PRINT_CSS}</style></head>
 <body>
+  <div class="toolbar no-print">
+    <button type="button" onclick="window.print()">Print / Save as PDF</button>
+    <span>If no print box opened, use this button. To keep a copy instead of printing, choose &ldquo;Save as PDF&rdquo; as the destination.</span>
+  </div>
   <div class="doc-header">
     <h1>${escapeHtml(title)}</h1>
     <div class="meta">${escapeHtml(subtitle)}</div>
@@ -194,6 +249,7 @@ function docShell(title: string, subtitle: string, body: string, footNote: strin
     <p>Printed ${escapeHtml(new Date().toLocaleString())}</p>
     <p>${escapeHtml(footNote)}</p>
   </div>
+  ${AUTO_PRINT_SCRIPT}
 </body></html>`;
 }
 
