@@ -10,7 +10,7 @@ import { Child } from '@/types';
  * Dates of birth are stored at noon UTC and must be read in UTC, or Pacific
  * time shows the day before (the Session 1 bug).
  */
-export function formatAge(dateOfBirth: Date): string {
+export function monthsOld(dateOfBirth: Date): number {
   const now = new Date();
   const dob = new Date(dateOfBirth);
 
@@ -19,7 +19,11 @@ export function formatAge(dateOfBirth: Date): string {
     (now.getMonth() - dob.getUTCMonth());
 
   if (now.getDate() < dob.getUTCDate()) months -= 1;
-  if (months < 0) months = 0;
+  return months < 0 ? 0 : months;
+}
+
+export function formatAge(dateOfBirth: Date): string {
+  const months = monthsOld(dateOfBirth);
 
   if (months < 24) {
     return months === 1 ? '1 month old' : `${months} months old`;

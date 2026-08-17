@@ -21,6 +21,7 @@ import {
   openPrintDocument,
 } from '@/lib/inspectorPrint';
 import { fetchDaycareName } from '@/lib/parentReports';
+import { monthsOld } from '@/lib/childDisplay';
 
 // Helper function to get local date string (YYYY-MM-DD)
 function getLocalDateString(date: Date = new Date()): string {
@@ -29,6 +30,11 @@ function getLocalDateString(date: Date = new Date()): string {
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
+
+// Children this age or older are left off the quick printout. A child with a
+// missing date of birth reads as 0 months and stays in, so nobody vanishes
+// from an inspection printout because of a bad record.
+const INSPECTION_AGE_MONTHS = 24;
 
 export default function ReportsPage() {
   const { user } = useAuth();
@@ -79,13 +85,18 @@ export default function ReportsPage() {
   // Inspectors ask for the sleep logs on paper. One click per range, no date
   // range to fill in while someone is standing at the desk.
   async function handlePrintSleep(days: number) {
-    if (children.length === 0) {
-      alert('No children to print');
+    // The licensing inspection covers children under two, so the quick print
+    // is scoped to them. An older child's records are still printable one at a
+    // time from that child's own card.
+    const underTwo = children.filter((child) => monthsOld(child.dateOfBirth) < INSPECTION_AGE_MONTHS);
+
+    if (underTwo.length === 0) {
+      alert('No children under 24 months. Use a child\'s own Print button for older children.');
       return;
     }
 
     try {
-      const ranges = await fetchSleepRange(children, lastNDateKeys(days));
+      const ranges = await fetchSleepRange(underTwo, lastNDateKeys(days));
       const daycareName = user?.daycareId
         ? await fetchDaycareName(user.daycareId)
         : '';
