@@ -13,7 +13,7 @@ import ChildStrip from '@/components/parent/ChildStrip';
 
 // Routes under /parent that must stay reachable while signed out, otherwise the
 // guard below would bounce parents away from the very pages that sign them in.
-const PUBLIC_PARENT_ROUTES = ['/parent/login', '/parent/finish'];
+const PUBLIC_PARENT_ROUTES = ['/parent/login', '/parent/finish', '/parent/help'];
 
 export default function ParentShell({
   children,

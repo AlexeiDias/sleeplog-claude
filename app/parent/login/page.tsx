@@ -3,6 +3,7 @@
 
 import { useState, useEffect, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   sendSignInLinkToEmail,
   signInWithEmailAndPassword,
@@ -206,7 +207,13 @@ export default function ParentLoginPage() {
           </>
         )}
 
-        <p className="mt-6 text-center text-xs text-gray-500">
+        <p className="mt-6 text-center text-sm">
+          <Link href="/parent/help" className="text-blue-600 hover:underline font-medium">
+            New here? Setting up on your phone
+          </Link>
+        </p>
+
+        <p className="mt-3 text-center text-xs text-gray-500">
           Already have access? You do not need a new invitation — just sign in
           above with the same email address. If your daycare has not given you
           access yet, please contact them directly.
