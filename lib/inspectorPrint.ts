@@ -6,11 +6,124 @@
 import { collection, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getDateKey } from '@/lib/dateKeys';
-import { dateKeysBetween, openPrintable } from '@/lib/parentReports';
+import { dateKeysBetween } from '@/lib/parentReports';
 import { formatAge, formatDOB } from '@/lib/childDisplay';
 import { Child, SleepLogEntry, SignInOutRecord } from '@/types';
 
-export { openPrintable };
+/** A built report: everything between <body> and </body>, plus its title. */
+export interface Printable {
+  title: string;
+  inner: string;
+}
+
+const TOOLBAR = `
+  <div class="toolbar no-print">
+    <button type="button" onclick="window.print()">Print / Save as PDF</button>
+    <span>If no print box opened, use this button. To keep a copy instead of printing, choose &ldquo;Save as PDF&rdquo; as the destination.</span>
+  </div>`;
+
+/**
+ * Shows the report and asks the browser to print it.
+ *
+ * On a desktop browser it opens in a new tab. Inside the iPad/iPhone
+ * home-screen app there are no tabs, so window.open returns null — no pop-up
+ * setting changes that, it is how a standalone web app works. In that case the
+ * report is drawn over the current screen instead, and the print stylesheet
+ * hides the app behind it so only the report reaches the paper.
+ *
+ * Returns which route was taken, so a caller can say something useful.
+ */
+export function openPrintDocument(doc: Printable): 'window' | 'inline' {
+  const win = window.open('', '_blank');
+
+  if (win) {
+    win.document.write(`<!DOCTYPE html>
+<html><head><meta charset="utf-8" /><title>${escapeHtml(doc.title)}</title>
+<style>${PRINT_CSS}</style></head>
+<body>${TOOLBAR}${doc.inner}${AUTO_PRINT_SCRIPT}</body></html>`);
+    win.document.close();
+    win.focus();
+    return 'window';
+  }
+
+  printInline(doc);
+  return 'inline';
+}
+
+const OVERLAY_ID = 'lc-print-overlay';
+const OVERLAY_STYLE_ID = 'lc-print-overlay-style';
+
+/** Draw the report over the app and print it, for browsers with no tabs. */
+function printInline(doc: Printable): void {
+  close();
+
+  const style = document.createElement('style');
+  style.id = OVERLAY_STYLE_ID;
+  style.textContent = `
+    #${OVERLAY_ID} { position: fixed; inset: 0; z-index: 9999; background: #fff;
+                     overflow: auto; -webkit-overflow-scrolling: touch; }
+    #${OVERLAY_ID} .sheet { max-width: 900px; margin: 0 auto; padding: 16px;
+                            font-family: Arial, Helvetica, sans-serif; }
+    ${PRINT_CSS}
+    @media print {
+      body > *:not(#${OVERLAY_ID}) { display: none !important; }
+      #${OVERLAY_ID} { position: static; overflow: visible; }
+      #${OVERLAY_ID} .sheet { max-width: none; padding: 0; }
+    }
+  `;
+
+  const overlay = document.createElement('div');
+  overlay.id = OVERLAY_ID;
+  overlay.innerHTML = `<div class="sheet">
+    <div class="toolbar no-print">
+      <button type="button" data-lc-print>Print / Save as PDF</button>
+      <button type="button" data-lc-close>Close</button>
+      <span>If no print box opens, this device cannot print from the home-screen app. Open loggincare.com in Safari, or print from a computer.</span>
+    </div>
+    ${doc.inner}
+  </div>`;
+
+  overlay.querySelector('[data-lc-print]')?.addEventListener('click', () => window.print());
+  overlay.querySelector('[data-lc-close]')?.addEventListener('click', close);
+
+  document.head.appendChild(style);
+  document.body.appendChild(overlay);
+
+  // Let the images arrive before the print sheet opens, same reason as the
+  // new-tab route.
+  whenImagesSettle(overlay, () => window.print());
+
+  function close(): void {
+    document.getElementById(OVERLAY_ID)?.remove();
+    document.getElementById(OVERLAY_STYLE_ID)?.remove();
+  }
+}
+
+/** Run `then` once every image inside `root` has loaded or failed, capped at 8s. */
+function whenImagesSettle(root: HTMLElement, then: () => void): void {
+  let done = false;
+  const go = () => {
+    if (done) return;
+    done = true;
+    setTimeout(then, 150);
+  };
+
+  const pending = Array.from(root.querySelectorAll('img')).filter((img) => !img.complete);
+  if (pending.length === 0) {
+    go();
+    return;
+  }
+
+  let left = pending.length;
+  const tick = () => {
+    if (--left <= 0) go();
+  };
+  pending.forEach((img) => {
+    img.addEventListener('load', tick);
+    img.addEventListener('error', tick);
+  });
+  setTimeout(go, 8000);
+}
 
 /** The three ranges offered as one-click buttons. */
 export const PRINT_RANGES = [15, 30, 90];
@@ -177,14 +290,47 @@ const PRINT_CSS = `
   .sig { max-height: 34px; max-width: 110px; border: 1px solid #ddd; border-radius: 3px; }
   .footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #ddd;
             color: #666; font-size: 10px; text-align: center; }
-  @media print { body { padding: 12px; } }
+  .toolbar { position: sticky; top: 0; background: #eef2ff; border: 1px solid #c7d2fe;
+             border-radius: 6px; padding: 10px 12px; margin-bottom: 16px;
+             display: flex; align-items: center; gap: 12px; }
+  .toolbar button { font: inherit; font-weight: bold; padding: 6px 14px; border-radius: 5px;
+                    border: 0; background: #4f46e5; color: #fff; cursor: pointer; }
+  .toolbar span { color: #3730a3; font-size: 11px; }
+  @media print { body { padding: 12px; } .no-print { display: none !important; } }
 `;
 
-function docShell(title: string, subtitle: string, body: string, footNote: string): string {
-  return `<!DOCTYPE html>
-<html><head><meta charset="utf-8" /><title>${escapeHtml(title)}</title>
-<style>${PRINT_CSS}</style></head>
-<body>
+// Print once the images have actually arrived. A child photo or a signature
+// still loading when print() fires prints as a blank box, or hangs the dialog.
+// The 8s cap means one unreachable image cannot block the whole document.
+const AUTO_PRINT_SCRIPT = `
+<script>
+(function () {
+  var started = false;
+  function go() {
+    if (started) return;
+    started = true;
+    setTimeout(function () { window.print(); }, 150);
+  }
+  function whenImagesSettle() {
+    var pending = [].slice.call(document.images).filter(function (img) { return !img.complete; });
+    if (!pending.length) return go();
+    var left = pending.length;
+    function done() { if (--left <= 0) go(); }
+    pending.forEach(function (img) {
+      img.addEventListener('load', done);
+      img.addEventListener('error', done);
+    });
+    setTimeout(go, 8000);
+  }
+  if (document.readyState === 'complete') whenImagesSettle();
+  else window.addEventListener('load', whenImagesSettle);
+})();
+<\/script>`;
+
+function docShell(title: string, subtitle: string, body: string, footNote: string): Printable {
+  return {
+    title,
+    inner: `
   <div class="doc-header">
     <h1>${escapeHtml(title)}</h1>
     <div class="meta">${escapeHtml(subtitle)}</div>
@@ -193,8 +339,8 @@ function docShell(title: string, subtitle: string, body: string, footNote: strin
   <div class="footer">
     <p>Printed ${escapeHtml(new Date().toLocaleString())}</p>
     <p>${escapeHtml(footNote)}</p>
-  </div>
-</body></html>`;
+  </div>`,
+  };
 }
 
 /** One child per page: photo, name, age, then a day-by-day nap table. */
@@ -202,7 +348,7 @@ export function buildSleepPrintHtml(
   ranges: ChildSleepRange[],
   daycareName: string,
   days: number
-): string {
+): Printable {
   const sections = ranges
     .map((range) => {
       const { child } = range;
@@ -318,7 +464,7 @@ export function buildSignInOutPrintHtml(
   records: SignInOutRecord[],
   daycareName: string,
   days: number
-): string {
+): Printable {
   const byDay = new Map<string, SignInOutRecord[]>();
   for (const record of records) {
     const key = getDateKey(record.timestamp);
