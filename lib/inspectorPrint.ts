@@ -14,6 +14,29 @@ import { Child, SleepLogEntry, SignInOutRecord } from '@/types';
 export interface Printable {
   title: string;
   inner: string;
+  /** Stylesheet for the report. Defaults to the shared print stylesheet. */
+  css?: string;
+  /** Original complete document, when the report was built as one elsewhere. */
+  fullHtml?: string;
+}
+
+/**
+ * Turns a complete HTML document into a Printable, so reports built elsewhere
+ * (the per-child daily report, which comes out of the email generator) can use
+ * the same routing and get the same fallback inside the home-screen app.
+ */
+export function printableFromDocument(html: string): Printable {
+  const parsed = new DOMParser().parseFromString(html, 'text/html');
+  const css = Array.from(parsed.querySelectorAll('style'))
+    .map((tag) => tag.textContent || '')
+    .join('\n');
+
+  return {
+    title: parsed.title || 'Report',
+    inner: parsed.body.innerHTML,
+    css,
+    fullHtml: html,
+  };
 }
 
 const TOOLBAR = `
@@ -37,10 +60,14 @@ export function openPrintDocument(doc: Printable): 'window' | 'inline' {
   const win = window.open('', '_blank');
 
   if (win) {
-    win.document.write(`<!DOCTYPE html>
+    win.document.write(
+      doc.fullHtml
+        ? doc.fullHtml.replace('</body>', `${TOOLBAR}${AUTO_PRINT_SCRIPT}</body>`)
+        : `<!DOCTYPE html>
 <html><head><meta charset="utf-8" /><title>${escapeHtml(doc.title)}</title>
 <style>${PRINT_CSS}</style></head>
-<body>${TOOLBAR}${doc.inner}${AUTO_PRINT_SCRIPT}</body></html>`);
+<body>${TOOLBAR}${doc.inner}${AUTO_PRINT_SCRIPT}</body></html>`
+    );
     win.document.close();
     win.focus();
     return 'window';
@@ -64,7 +91,7 @@ function printInline(doc: Printable): void {
                      overflow: auto; -webkit-overflow-scrolling: touch; }
     #${OVERLAY_ID} .sheet { max-width: 900px; margin: 0 auto; padding: 16px;
                             font-family: Arial, Helvetica, sans-serif; }
-    ${PRINT_CSS}
+    ${doc.css || PRINT_CSS}
     @media print {
       body > *:not(#${OVERLAY_ID}) { display: none !important; }
       #${OVERLAY_ID} { position: static; overflow: visible; }

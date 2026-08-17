@@ -6,6 +6,7 @@ import { db } from '@/lib/firebase';
 import Button from './Button';
 import SleepLogTable from './SleepLogTable';
 import { generateEmailHTML } from '@/utils/reportGenerator';
+import { openPrintDocument, printableFromDocument } from '@/lib/inspectorPrint';
 
 interface HistoricalChildCardProps {
   child: Child;
@@ -226,15 +227,11 @@ export default function HistoricalChildCard({ child, selectedDate }: HistoricalC
         daycareData
       );
 
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(htmlContent);
-        printWindow.document.close();
-        printWindow.focus();
-        setTimeout(() => {
-          printWindow.print();
-        }, 500);
-      }
+      // Routed through openPrintDocument so this works in the home-screen app
+      // too. It used to call window.open directly and do nothing at all when
+      // that returned null, which is what a standalone app always returns:
+      // the spinner stopped and no report ever appeared.
+      openPrintDocument(printableFromDocument(htmlContent));
     } catch (error: any) {
       console.error('Error printing:', error);
       alert('Failed to generate print report: ' + error.message);
