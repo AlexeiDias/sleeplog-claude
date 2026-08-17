@@ -52,6 +52,30 @@ export function exportToCSV(child: Child, entries: SleepLogEntry[], dateRange: s
   document.body.removeChild(link);
 }
 
+// Quote every cell and double any internal quotes. Notes routinely contain
+// commas and quotation marks, which otherwise split a row into extra columns.
+function csvCell(value: unknown): string {
+  return `"${String(value ?? '').replace(/"/g, '""')}"`;
+}
+
+// YYYY-MM-DD, in local time. Sorts correctly as text and is read as a date by
+// Excel and Google Sheets, unlike the locale format this used to write.
+function isoDate(value: Date): string {
+  const d = new Date(value);
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${month}-${day}`;
+}
+
+// Dates of birth are stored at noon UTC and must be read in UTC, or a Pacific
+// browser shows the day before.
+function isoDobUTC(value: Date): string {
+  const d = new Date(value);
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${d.getUTCFullYear()}-${month}-${day}`;
+}
+
 export async function exportAllChildrenToCSV(childrenData: Array<{ child: Child; entries: SleepLogEntry[] }>, dateRange: string) {
   // CSV Headers
   const headers = [
@@ -69,39 +93,46 @@ export async function exportAllChildrenToCSV(childrenData: Array<{ child: Child;
     'Session ID',
   ];
 
-  // Collect all rows from all children
-  const allRows: string[][] = [];
-  
-  for (const { child, entries } of childrenData) {
-    const rows = entries.map(entry => [
-      child.name,
-      new Date(child.dateOfBirth).toLocaleDateString(),
-      new Date(entry.timestamp).toLocaleDateString(),
-      new Date(entry.timestamp).toLocaleTimeString(),
-      entry.type,
-      entry.position,
-      entry.breathing,
-      entry.mood || '',
-      entry.notes || '',
-      entry.intervalSinceLast?.toString() || '',
-      entry.staffInitials,
-      entry.sessionId,
-    ]);
-    allRows.push(...rows);
+  // One block per child, oldest entry first inside each block — the same order
+  // as the printed report. The previous version interleaved every child into a
+  // single date-sorted list, which is unreadable once there is more than one
+  // child, and it sorted on formatted date strings rather than the timestamp.
+  const blocks: string[][][] = [];
+
+  const orderedChildren = [...childrenData].sort((a, b) =>
+    a.child.name.localeCompare(b.child.name)
+  );
+
+  for (const { child, entries } of orderedChildren) {
+    const orderedEntries = [...entries].sort(
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+
+    blocks.push(
+      orderedEntries.map(entry => [
+        child.name,
+        isoDobUTC(new Date(child.dateOfBirth)),
+        isoDate(new Date(entry.timestamp)),
+        new Date(entry.timestamp).toLocaleTimeString(),
+        entry.type,
+        entry.position,
+        entry.breathing,
+        entry.mood || '',
+        entry.notes || '',
+        entry.intervalSinceLast?.toString() || '',
+        entry.staffInitials,
+        entry.sessionId,
+      ])
+    );
   }
 
-  // Sort by date and time
-  allRows.sort((a, b) => {
-    const dateA = new Date(`${a[2]} ${a[3]}`).getTime();
-    const dateB = new Date(`${b[2]} ${b[3]}`).getTime();
-    return dateA - dateB;
-  });
+  // A blank line between children, so the blocks are visible at a glance when
+  // the file is opened in a spreadsheet.
+  const body = blocks
+    .map(rows => rows.map(row => row.map(csvCell).join(',')).join('\n'))
+    .join('\n\n');
 
-  // Combine headers and rows
-  const csvContent = [
-    headers.join(','),
-    ...allRows.map(row => row.map(cell => `"${cell}"`).join(','))
-  ].join('\n');
+  const csvContent = [headers.join(','), body].join('\n');
 
   // Create and download file
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
