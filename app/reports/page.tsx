@@ -89,10 +89,7 @@ export default function ReportsPage() {
       const daycareName = user?.daycareId
         ? await fetchDaycareName(user.daycareId)
         : '';
-      const opened = openPrintDocument(buildSleepPrintHtml(ranges, daycareName, days));
-      if (!opened) {
-        alert('Your browser blocked the print window. Allow pop-ups for loggincare.com and try again.');
-      }
+      openPrintDocument(buildSleepPrintHtml(ranges, daycareName, days));
     } catch (error) {
       console.error('Error printing sleep logs:', error);
       alert('Could not build the printout. Please try again.');

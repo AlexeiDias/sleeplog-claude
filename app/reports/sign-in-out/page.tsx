@@ -346,12 +346,7 @@ export default function SignInOutReportsPage() {
       }
 
       const daycareName = await fetchDaycareName(user.daycareId);
-      const opened = openPrintDocument(
-        buildSignInOutPrintHtml(rangeRecords, daycareName, days)
-      );
-      if (!opened) {
-        alert('Your browser blocked the print window. Allow pop-ups for loggincare.com and try again.');
-      }
+      openPrintDocument(buildSignInOutPrintHtml(rangeRecords, daycareName, days));
     } catch (error) {
       console.error('Error printing sign-in/out records:', error);
       alert('Could not build the printout. Please try again.');

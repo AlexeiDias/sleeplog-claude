@@ -10,23 +10,119 @@ import { dateKeysBetween } from '@/lib/parentReports';
 import { formatAge, formatDOB } from '@/lib/childDisplay';
 import { Child, SleepLogEntry, SignInOutRecord } from '@/types';
 
+/** A built report: everything between <body> and </body>, plus its title. */
+export interface Printable {
+  title: string;
+  inner: string;
+}
+
+const TOOLBAR = `
+  <div class="toolbar no-print">
+    <button type="button" onclick="window.print()">Print / Save as PDF</button>
+    <span>If no print box opened, use this button. To keep a copy instead of printing, choose &ldquo;Save as PDF&rdquo; as the destination.</span>
+  </div>`;
+
 /**
- * Opens the printable document in a new tab.
+ * Shows the report and asks the browser to print it.
  *
- * Unlike the parent-portal printout, this one does NOT call print() on a timer.
- * These documents embed child photos and signature images loaded from Storage,
- * and asking the browser to print before they arrive leaves the print dialog
- * sitting on "Looking for printer" with nothing to render. The document prints
- * itself once its images have settled, and carries its own Print button as a
- * fallback.
+ * On a desktop browser it opens in a new tab. Inside the iPad/iPhone
+ * home-screen app there are no tabs, so window.open returns null — no pop-up
+ * setting changes that, it is how a standalone web app works. In that case the
+ * report is drawn over the current screen instead, and the print stylesheet
+ * hides the app behind it so only the report reaches the paper.
+ *
+ * Returns which route was taken, so a caller can say something useful.
  */
-export function openPrintDocument(html: string): boolean {
+export function openPrintDocument(doc: Printable): 'window' | 'inline' {
   const win = window.open('', '_blank');
-  if (!win) return false; // popup blocked, or standalone app with no tabs
-  win.document.write(html);
-  win.document.close();
-  win.focus();
-  return true;
+
+  if (win) {
+    win.document.write(`<!DOCTYPE html>
+<html><head><meta charset="utf-8" /><title>${escapeHtml(doc.title)}</title>
+<style>${PRINT_CSS}</style></head>
+<body>${TOOLBAR}${doc.inner}${AUTO_PRINT_SCRIPT}</body></html>`);
+    win.document.close();
+    win.focus();
+    return 'window';
+  }
+
+  printInline(doc);
+  return 'inline';
+}
+
+const OVERLAY_ID = 'lc-print-overlay';
+const OVERLAY_STYLE_ID = 'lc-print-overlay-style';
+
+/** Draw the report over the app and print it, for browsers with no tabs. */
+function printInline(doc: Printable): void {
+  close();
+
+  const style = document.createElement('style');
+  style.id = OVERLAY_STYLE_ID;
+  style.textContent = `
+    #${OVERLAY_ID} { position: fixed; inset: 0; z-index: 9999; background: #fff;
+                     overflow: auto; -webkit-overflow-scrolling: touch; }
+    #${OVERLAY_ID} .sheet { max-width: 900px; margin: 0 auto; padding: 16px;
+                            font-family: Arial, Helvetica, sans-serif; }
+    ${PRINT_CSS}
+    @media print {
+      body > *:not(#${OVERLAY_ID}) { display: none !important; }
+      #${OVERLAY_ID} { position: static; overflow: visible; }
+      #${OVERLAY_ID} .sheet { max-width: none; padding: 0; }
+    }
+  `;
+
+  const overlay = document.createElement('div');
+  overlay.id = OVERLAY_ID;
+  overlay.innerHTML = `<div class="sheet">
+    <div class="toolbar no-print">
+      <button type="button" data-lc-print>Print / Save as PDF</button>
+      <button type="button" data-lc-close>Close</button>
+      <span>If no print box opens, this device cannot print from the home-screen app. Open loggincare.com in Safari, or print from a computer.</span>
+    </div>
+    ${doc.inner}
+  </div>`;
+
+  overlay.querySelector('[data-lc-print]')?.addEventListener('click', () => window.print());
+  overlay.querySelector('[data-lc-close]')?.addEventListener('click', close);
+
+  document.head.appendChild(style);
+  document.body.appendChild(overlay);
+
+  // Let the images arrive before the print sheet opens, same reason as the
+  // new-tab route.
+  whenImagesSettle(overlay, () => window.print());
+
+  function close(): void {
+    document.getElementById(OVERLAY_ID)?.remove();
+    document.getElementById(OVERLAY_STYLE_ID)?.remove();
+  }
+}
+
+/** Run `then` once every image inside `root` has loaded or failed, capped at 8s. */
+function whenImagesSettle(root: HTMLElement, then: () => void): void {
+  let done = false;
+  const go = () => {
+    if (done) return;
+    done = true;
+    setTimeout(then, 150);
+  };
+
+  const pending = Array.from(root.querySelectorAll('img')).filter((img) => !img.complete);
+  if (pending.length === 0) {
+    go();
+    return;
+  }
+
+  let left = pending.length;
+  const tick = () => {
+    if (--left <= 0) go();
+  };
+  pending.forEach((img) => {
+    img.addEventListener('load', tick);
+    img.addEventListener('error', tick);
+  });
+  setTimeout(go, 8000);
 }
 
 /** The three ranges offered as one-click buttons. */
@@ -231,15 +327,10 @@ const AUTO_PRINT_SCRIPT = `
 })();
 <\/script>`;
 
-function docShell(title: string, subtitle: string, body: string, footNote: string): string {
-  return `<!DOCTYPE html>
-<html><head><meta charset="utf-8" /><title>${escapeHtml(title)}</title>
-<style>${PRINT_CSS}</style></head>
-<body>
-  <div class="toolbar no-print">
-    <button type="button" onclick="window.print()">Print / Save as PDF</button>
-    <span>If no print box opened, use this button. To keep a copy instead of printing, choose &ldquo;Save as PDF&rdquo; as the destination.</span>
-  </div>
+function docShell(title: string, subtitle: string, body: string, footNote: string): Printable {
+  return {
+    title,
+    inner: `
   <div class="doc-header">
     <h1>${escapeHtml(title)}</h1>
     <div class="meta">${escapeHtml(subtitle)}</div>
@@ -248,9 +339,8 @@ function docShell(title: string, subtitle: string, body: string, footNote: strin
   <div class="footer">
     <p>Printed ${escapeHtml(new Date().toLocaleString())}</p>
     <p>${escapeHtml(footNote)}</p>
-  </div>
-  ${AUTO_PRINT_SCRIPT}
-</body></html>`;
+  </div>`,
+  };
 }
 
 /** One child per page: photo, name, age, then a day-by-day nap table. */
@@ -258,7 +348,7 @@ export function buildSleepPrintHtml(
   ranges: ChildSleepRange[],
   daycareName: string,
   days: number
-): string {
+): Printable {
   const sections = ranges
     .map((range) => {
       const { child } = range;
@@ -374,7 +464,7 @@ export function buildSignInOutPrintHtml(
   records: SignInOutRecord[],
   daycareName: string,
   days: number
-): string {
+): Printable {
   const byDay = new Map<string, SignInOutRecord[]>();
   for (const record of records) {
     const key = getDateKey(record.timestamp);
