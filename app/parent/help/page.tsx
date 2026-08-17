@@ -40,6 +40,18 @@ const STEPS = [
   },
 ];
 
+// What a parent actually sees. Every one of these is a live listener on the
+// daily feed, so the wording says "as we log it" rather than "at the end of
+// the day". Keep in step with the printed handout.
+const SEE = [
+  { t: 'Naps', d: 'When each nap started and ended, and how long it lasted.' },
+  { t: 'Meals & bottles', d: 'What your child ate or drank, and how much.' },
+  { t: 'Diaper changes', d: 'Each change, with the time it happened.' },
+  { t: 'Activities', d: 'What they played, painted, read or sang, and for how long.' },
+  { t: 'If something happens', d: 'A bump or a scrape is written down as it is dealt with: what happened, where, and the care given.' },
+  { t: 'Photos & messages', d: 'Pictures from the day, and a direct line to your daycare.' },
+];
+
 const STUCK = [
   {
     q: 'The app icon asks me to sign in and my email link does not work',
@@ -67,15 +79,38 @@ export default function ParentHelpPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-2xl mx-auto px-4 py-10">
-        <h1 className="text-2xl font-bold text-gray-900">
-          Setting up on your phone
-        </h1>
+        <h1 className="text-2xl font-bold text-gray-900">Your parent portal</h1>
         <p className="mt-2 text-gray-600">
-          Four steps, about five minutes, once. After this the portal opens from
+          See your child’s day as it happens, from your phone. Setup takes four
+          steps and about five minutes, once — after that the portal opens from
           an icon on your Home Screen and stays signed in.
         </p>
 
-        <ol className="mt-8 space-y-4">
+        <h2 className="mt-8 text-xl font-bold text-gray-900">What you will see</h2>
+        <p className="mt-1 text-gray-600">
+          Everything below appears as your daycare logs it, during the day — not
+          in a summary at pick-up.
+        </p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          {SEE.map((item) => (
+            <div
+              key={item.t}
+              className="bg-white rounded-lg border border-gray-200 p-4"
+            >
+              <h3 className="font-semibold text-gray-900">{item.t}</h3>
+              <p className="mt-1 text-sm text-gray-600">{item.d}</p>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 text-sm text-gray-500">
+          Every entry is time-stamped and initialled by the person who logged
+          it, and you can download or print any day’s record yourself.
+        </p>
+
+        <h2 className="mt-10 text-xl font-bold text-gray-900">
+          Setting up on your phone
+        </h2>
+        <ol className="mt-4 space-y-4">
           {STEPS.map((step) => (
             <li
               key={step.n}
