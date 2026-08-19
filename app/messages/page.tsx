@@ -10,6 +10,7 @@ import Navbar from '@/components/Navbar';
 import MessageThreadView from '@/components/messaging/MessageThreadView';
 import AnnouncementComposer from '@/components/announcements/AnnouncementComposer';
 import AnnouncementList from '@/components/announcements/AnnouncementList';
+import PhotoBroadcastComposer from '@/components/messaging/PhotoBroadcastComposer';
 import { useStaffUnreadThreads } from '@/components/messaging/useUnreadMessages';
 import { Family, MessageThread } from '@/types';
 import { formatMessageTime, toDate } from '@/lib/messaging';
@@ -27,7 +28,7 @@ export default function StaffMessagesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const { unreadFamilyIds } = useStaffUnreadThreads(user?.daycareId);
-  const [view, setView] = useState<'families' | 'announcements'>('families');
+  const [view, setView] = useState<'families' | 'group' | 'announcements'>('families');
 
   useEffect(() => {
     if (authLoading) return;
@@ -107,6 +108,7 @@ export default function StaffMessagesPage() {
         <div className="mb-4 flex gap-1 border-b">
           {([
             { key: 'families', label: 'Families' },
+            { key: 'group', label: 'Group send' },
             { key: 'announcements', label: 'Announcements' },
           ] as const).map((tab) => (
             <button
@@ -134,6 +136,13 @@ export default function StaffMessagesPage() {
             <AnnouncementComposer author={user} />
             <AnnouncementList user={user} viewerRole="staff" />
           </div>
+        ) : view === 'group' ? (
+          <PhotoBroadcastComposer
+            families={rows.map((row) => row.family)}
+            currentUser={user}
+            daycareId={user.daycareId as string}
+            onSent={() => setView('families')}
+          />
         ) : (
         <div className="grid md:grid-cols-[280px_1fr] gap-4">
           <div className="bg-white rounded-lg shadow overflow-hidden">
