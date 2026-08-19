@@ -290,6 +290,45 @@ await check('parent-scope', 'parent CANNOT read daycare activity settings', 'den
   getDoc(doc(as('parentA_uid', 'parenta@x.com'),
     'daycares', DAYCARE, 'activitySettings', 'config')));
 
+// ─────────────────────────────────────────────────────────────
+// SUPPLY INVENTORY
+//
+// Parents may read their own child's count — being told when to send more is
+// the point — but only staff may change it, because the number has to match
+// what is physically on the shelf at the daycare.
+// ─────────────────────────────────────────────────────────────
+
+await check('inventory', 'staff CAN read a child stock level', 'allow', () =>
+  getDoc(doc(as('staff_uid', 'staff@lsd.com'),
+    'children', CHILD_A, 'inventory', 'diapers')));
+
+await check('inventory', 'staff CAN set a child stock level', 'allow', () =>
+  setDoc(doc(as('staff_uid', 'staff@lsd.com'),
+    'children', CHILD_A, 'inventory', 'diapers'),
+    { childId: CHILD_A, daycareId: DAYCARE, familyId: FAMILY_A, kind: 'diapers', baseline: 30, lowAt: 6 }));
+
+await check('inventory', 'parent CAN read OWN child stock level', 'allow', () =>
+  getDoc(doc(as('parentA_uid', 'parenta@x.com'),
+    'children', CHILD_A, 'inventory', 'diapers')));
+
+await check('inventory', 'parent CANNOT read ANOTHER child stock level', 'deny', () =>
+  getDoc(doc(as('parentA_uid', 'parenta@x.com'),
+    'children', CHILD_B, 'inventory', 'diapers')));
+
+await check('inventory', 'parent CANNOT change OWN child stock level', 'deny', () =>
+  setDoc(doc(as('parentA_uid', 'parenta@x.com'),
+    'children', CHILD_A, 'inventory', 'diapers'),
+    { childId: CHILD_A, daycareId: DAYCARE, familyId: FAMILY_A, kind: 'diapers', baseline: 999, lowAt: 6 }));
+
+await check('inventory', 'parent CANNOT change ANOTHER child stock level', 'deny', () =>
+  setDoc(doc(as('parentA_uid', 'parenta@x.com'),
+    'children', CHILD_B, 'inventory', 'formula'),
+    { childId: CHILD_B, daycareId: DAYCARE, familyId: FAMILY_B, kind: 'formula', baseline: 999, lowAt: 24 }));
+
+await check('inventory', 'signed-out visitor CANNOT read stock levels', 'deny', () =>
+  getDoc(doc(testEnv.unauthenticatedContext().firestore(),
+    'children', CHILD_A, 'inventory', 'diapers')));
+
 await check('parent-scope', 'staff CAN still read child logs (no regression)', 'allow', () =>
   getDoc(doc(as('staff_uid', 'staff@lsd.com'),
     'children', CHILD_A, 'sleepLogs', DATE, 'entries', 'e1')));

@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getDateKey } from '@/lib/parentAuth';
 import Link from 'next/link';
 import AddToHomeScreenTip from '@/components/parent/AddToHomeScreenTip';
+import SuppliesNote from '@/components/parent/SuppliesNote';
 import SetPasswordCard from '@/components/parent/SetPasswordCard';
 import AnnouncementList from '@/components/announcements/AnnouncementList';
 import { Child } from '@/types';
@@ -328,6 +329,9 @@ export default function ParentDailyFeedPage() {
                 <p className="text-xs text-gray-500">
                   {items.length} {items.length === 1 ? 'entry' : 'entries'} logged
                 </p>
+                {/* What is left at the daycare, so a parent can check before
+                    shopping. Read-only; staff hold the real count. */}
+                <SuppliesNote childId={child.id} />
               </div>
             </div>
 
