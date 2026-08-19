@@ -250,7 +250,12 @@ export interface SignInOutRecord {
 // ============================================
 
 // Care Log Type Options
-export type CareLogType = 'diaper' | 'meal' | 'bottle';
+export type CareLogType = 'diaper' | 'meal' | 'bottle' | 'bathroom';
+
+// Independent toilet use, for a child out of diapers. Kept separate from
+// DiaperType because these are not diaper changes: they consume no supplies,
+// and a five-year-old's record should not read "Diaper change".
+export type BathroomResult = 'pee' | 'poop' | 'both' | 'accident' | 'tried';
 export type DiaperType = 'dry' | 'wet' | 'solid' | 'both';
 
 // Care Log Settings (per child)
@@ -259,6 +264,10 @@ export interface CareLogSettings {
   trackDiapers: boolean;
   trackMeals: boolean;
   trackBottles: boolean;
+  // Independent toilet use. Separate from trackDiapers so a child out of
+  // diapers can have bathroom breaks logged without their record saying
+  // "Diaper change" and without a diaper stock count appearing for them.
+  trackBathroom?: boolean;
   pottyTrained: boolean; // If true, hide diaper tracking
   noBottles: boolean; // If true, hide bottle tracking
 }
@@ -281,6 +290,13 @@ export interface BaseCareLogEntry {
 export interface DiaperEntry extends BaseCareLogEntry {
   type: 'diaper';
   diaperType: DiaperType;
+  comments?: string;
+}
+
+// Bathroom Entry
+export interface BathroomEntry extends BaseCareLogEntry {
+  type: 'bathroom';
+  result: BathroomResult;
   comments?: string;
 }
 
@@ -325,13 +341,14 @@ export interface BottleEntry extends BaseCareLogEntry {
 }
 
 // Union type for all care log entries
-export type CareLogEntry = DiaperEntry | MealEntry | BottleEntry;
+export type CareLogEntry = DiaperEntry | MealEntry | BottleEntry | BathroomEntry;
 
 // Care Log Summary (for daily reports)
 export interface CareLogSummary {
   date: string; // YYYY-MM-DD
   childId: string;
   totalDiapers: number;
+  totalBathroom: number;
   totalMeals: number;
   totalBottles: number;
   totalBottleOz: number;

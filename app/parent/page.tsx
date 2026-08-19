@@ -61,6 +61,16 @@ function formatTime(date: Date): string {
 
 type DocData = Record<string, unknown>;
 
+// Plain words for a parent reading their child's day. "tried" on its own reads
+// as a failure; "Tried, nothing yet" does not.
+const BATHROOM_WORDS: Record<string, string> = {
+  pee: 'Pee',
+  poop: 'Poop',
+  both: 'Pee and poop',
+  accident: 'Accident',
+  tried: 'Tried, nothing yet',
+};
+
 function buildItem(kind: FeedKind, id: string, data: DocData): FeedItem | null {
   const parts: string[] = [];
   const push = (value: unknown, prefix = '') => {
@@ -86,7 +96,10 @@ function buildItem(kind: FeedKind, id: string, data: DocData): FeedItem | null {
 
   if (kind === 'care') {
     let title = 'Care';
-    if (data.type === 'diaper') {
+    if (data.type === 'bathroom') {
+      title = 'Bathroom';
+      push(BATHROOM_WORDS[data.result as string] || data.result);
+    } else if (data.type === 'diaper') {
       title = 'Diaper change';
       push(data.diaperType);
     } else if (data.type === 'bottle') {

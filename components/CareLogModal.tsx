@@ -7,7 +7,7 @@ import Input from './Input';
 import Select from './Select';
 import Button from './Button';
 import NutritionSearch from './NutritionSearch';
-import { CareLogType, DiaperType, NutritionData } from '@/types';
+import { CareLogType, DiaperType, NutritionData, BathroomResult } from '@/types';
 
 interface CareLogModalProps {
   isOpen: boolean;
@@ -56,11 +56,24 @@ export default function CareLogModal({
   const [bottleAmount, setBottleAmount] = useState('');
   const [bottleComments, setBottleComments] = useState('');
 
+  // Bathroom fields
+  const [bathroomResult, setBathroomResult] = useState<BathroomResult>('pee');
+  const [bathroomComments, setBathroomComments] = useState('');
+
   const titles = {
     diaper: `🧷 Log Diaper Change - ${childName}`,
     meal: `🍽️ Log Meal - ${childName}`,
     bottle: `🍼 Log Bottle - ${childName}`,
+    bathroom: `🚽 Log Bathroom - ${childName}`,
   };
+
+  const bathroomOptions = [
+    { value: 'pee', label: 'Pee' },
+    { value: 'poop', label: 'Poop' },
+    { value: 'both', label: 'Both' },
+    { value: 'accident', label: 'Accident' },
+    { value: 'tried', label: 'Tried, nothing' },
+  ];
 
   const diaperOptions = [
     { value: 'dry', label: 'Dry' },
@@ -70,6 +83,8 @@ export default function CareLogModal({
   ];
 
   function resetForm() {
+    setBathroomResult('pee');
+    setBathroomComments('');
     setDiaperType('wet');
     setDiaperComments('');
     setMealAmount('');
@@ -138,6 +153,11 @@ export default function CareLogModal({
         if (nutritionData) {
           entryData.nutrition = nutritionData;
         }
+      } else if (logType === 'bathroom') {
+        entryData.result = bathroomResult;
+        if (bathroomComments.trim()) {
+          entryData.comments = bathroomComments.trim();
+        }
       } else if (logType === 'bottle') {
         entryData.amount = parseFloat(bottleAmount);
         if (bottleComments.trim()) {
@@ -192,6 +212,34 @@ export default function CareLogModal({
                 maxLength={200}
               />
               <p className="mt-1 text-xs text-gray-500">{diaperComments.length}/200</p>
+            </div>
+          </>
+        )}
+
+        {/* BATHROOM FORM */}
+        {logType === 'bathroom' && (
+          <>
+            <Select
+              label="Result"
+              options={bathroomOptions}
+              value={bathroomResult}
+              onChange={(e) => setBathroomResult(e.target.value as BathroomResult)}
+              required
+            />
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Comments (Optional)
+              </label>
+              <textarea
+                value={bathroomComments}
+                onChange={(e) => setBathroomComments(e.target.value)}
+                placeholder="Any observations..."
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                maxLength={200}
+              />
+              <p className="mt-1 text-xs text-gray-500">{bathroomComments.length}/200</p>
             </div>
           </>
         )}
