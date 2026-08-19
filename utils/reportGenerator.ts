@@ -1,5 +1,15 @@
 //utils/reportGenerator.ts
-import { SleepLogEntry, Child, CareLogEntry, DiaperEntry, MealEntry, BottleEntry, ActivityLogEntry } from '@/types';
+import { SleepLogEntry, Child, CareLogEntry, DiaperEntry, MealEntry, BottleEntry, BathroomEntry, ActivityLogEntry } from '@/types';
+
+// Plain wording for a printed record. A child out of diapers should not have
+// their toilet trips filed as diaper changes.
+const BATHROOM_WORDS: Record<string, string> = {
+  pee: '💧 Pee',
+  poop: '💩 Poop',
+  both: '💧💩 Pee and poop',
+  accident: '⚠️ Accident',
+  tried: '⏱️ Tried, nothing yet',
+};
 
 // Timezone-safe date formatter for DOB (prevents UTC→local shift)
 function formatDOB(date: any): string {
@@ -341,6 +351,7 @@ export function generateCareLogHTML(reportData: CareReportData, daycareInfo: any
 
   // Group entries by type
   const diaperEntries = entries.filter(e => e.type === 'diaper') as DiaperEntry[];
+  const bathroomEntries = entries.filter(e => e.type === 'bathroom') as BathroomEntry[];
   const mealEntries = entries.filter(e => e.type === 'meal') as MealEntry[];
   const bottleEntries = entries.filter(e => e.type === 'bottle') as BottleEntry[];
 
@@ -605,6 +616,36 @@ export function generateCareLogHTML(reportData: CareReportData, daycareInfo: any
     ` : '<div class="no-entries">No diaper changes recorded</div>'}
   </div>
 `;
+
+  // Bathroom Section — omitted entirely when unused, so reports for children in
+  // diapers look exactly as they did before.
+  if (bathroomEntries.length > 0) {
+    html += `
+  <div class="section">
+    <div class="section-header diaper">🚽 Bathroom (${bathroomEntries.length})</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Result</th>
+          <th>Comments</th>
+          <th>Staff</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${bathroomEntries.map(entry => `
+        <tr>
+          <td>${formatTime(entry.timestamp)}</td>
+          <td>${BATHROOM_WORDS[entry.result] || entry.result}</td>
+          <td class="notes-cell">${entry.comments || '-'}</td>
+          <td><strong>${entry.staffInitials}</strong></td>
+        </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  </div>
+`;
+  }
 
   // Meals Section
   const mealCalories = mealEntries.reduce((sum, e) => sum + ((e as any).nutrition?.totalCalories || 0), 0);

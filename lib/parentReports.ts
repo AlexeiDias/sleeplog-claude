@@ -78,7 +78,18 @@ function describe(
 
   if (category === 'Care') {
     let what = 'Care';
-    if (data.type === 'diaper') {
+    if (data.type === 'bathroom') {
+      what = 'Bathroom';
+      push(
+        ({
+          pee: 'Pee',
+          poop: 'Poop',
+          both: 'Pee and poop',
+          accident: 'Accident',
+          tried: 'Tried, nothing yet',
+        } as Record<string, string>)[data.result as string] || data.result
+      );
+    } else if (data.type === 'diaper') {
       what = 'Diaper change';
       push(data.diaperType);
     } else if (data.type === 'bottle') {

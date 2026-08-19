@@ -6,7 +6,7 @@ import Modal from './Modal';
 import Input from './Input';
 import Select from './Select';
 import Button from './Button';
-import { CareLogEntry, DiaperEntry, MealEntry, BottleEntry, DiaperType } from '@/types';
+import { CareLogEntry, DiaperEntry, MealEntry, BottleEntry, DiaperType, BathroomResult, BathroomEntry } from '@/types';
 
 interface EditCareLogModalProps {
   isOpen: boolean;
@@ -36,6 +36,10 @@ export default function EditCareLogModal({
   const [diaperType, setDiaperType] = useState<DiaperType>('wet');
   const [diaperComments, setDiaperComments] = useState('');
 
+  // Bathroom fields
+  const [bathroomResult, setBathroomResult] = useState<BathroomResult>('pee');
+  const [bathroomComments, setBathroomComments] = useState('');
+
   // Meal fields
   const [mealAmount, setMealAmount] = useState('');
   const [ingredients, setIngredients] = useState('');
@@ -48,7 +52,11 @@ export default function EditCareLogModal({
   // Load entry data when modal opens
   useEffect(() => {
     if (isOpen && entry) {
-      if (entry.type === 'diaper') {
+      if (entry.type === 'bathroom') {
+        const bEntry = entry as BathroomEntry;
+        setBathroomResult(bEntry.result);
+        setBathroomComments(bEntry.comments || '');
+      } else if (entry.type === 'diaper') {
         const dEntry = entry as DiaperEntry;
         setDiaperType(dEntry.diaperType);
         setDiaperComments(dEntry.comments || '');
@@ -69,7 +77,16 @@ export default function EditCareLogModal({
     diaper: `✏️ Edit Diaper Change - ${childName}`,
     meal: `✏️ Edit Meal - ${childName}`,
     bottle: `✏️ Edit Bottle - ${childName}`,
+    bathroom: `✏️ Edit Bathroom - ${childName}`,
   };
+
+  const bathroomOptions = [
+    { value: 'pee', label: 'Pee' },
+    { value: 'poop', label: 'Poop' },
+    { value: 'both', label: 'Both' },
+    { value: 'accident', label: 'Accident' },
+    { value: 'tried', label: 'Tried, nothing' },
+  ];
 
   const diaperOptions = [
     { value: 'wet', label: 'Wet' },
@@ -119,7 +136,10 @@ export default function EditCareLogModal({
         lastEditedByInitials: staffInitials,
       };
 
-      if (entry.type === 'diaper') {
+      if (entry.type === 'bathroom') {
+        updateData.result = bathroomResult;
+        updateData.comments = bathroomComments.trim() || null;
+      } else if (entry.type === 'diaper') {
         updateData.diaperType = diaperType;
         updateData.comments = diaperComments.trim() || null;
       } else if (entry.type === 'meal') {
@@ -206,6 +226,33 @@ export default function EditCareLogModal({
         </div>
 
         {/* DIAPER FORM */}
+        {entry.type === 'bathroom' && (
+          <>
+            <Select
+              label="Result"
+              options={bathroomOptions}
+              value={bathroomResult}
+              onChange={(e) => setBathroomResult(e.target.value as BathroomResult)}
+              required
+            />
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Comments (Optional)
+              </label>
+              <textarea
+                value={bathroomComments}
+                onChange={(e) => setBathroomComments(e.target.value)}
+                placeholder="Any observations..."
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                maxLength={200}
+              />
+              <p className="mt-1 text-xs text-gray-500">{bathroomComments.length}/200</p>
+            </div>
+          </>
+        )}
+
         {entry.type === 'diaper' && (
           <>
             <Select

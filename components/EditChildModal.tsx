@@ -44,6 +44,7 @@ export default function EditChildModal({ child, isOpen, onClose, onSuccess }: Ed
     trackDiapers: true,
     trackMeals: true,
     trackBottles: true,
+    trackBathroom: false,
     pottyTrained: false,
     noBottles: false,
   });
@@ -214,6 +215,21 @@ export default function EditChildModal({ child, isOpen, onClose, onSuccess }: Ed
                   />
                   <span className="text-sm text-gray-700">Track Diapers</span>
                 </label>
+
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={careLogSettings.trackBathroom ?? false}
+                    onChange={(e) => setCareLogSettings({ ...careLogSettings, trackBathroom: e.target.checked })}
+                    disabled={loading}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">Track Bathroom</span>
+                </label>
+                <p className="text-xs text-gray-500 -mt-1 ml-7">
+                  For a child out of diapers. Logs toilet trips without calling
+                  them diaper changes, and does not count against diaper stock.
+                </p>
 
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input

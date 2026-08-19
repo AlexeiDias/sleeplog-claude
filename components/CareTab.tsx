@@ -39,6 +39,7 @@ export default function CareTab({ child }: CareTabProps) {
     trackDiapers: true,
     trackMeals: true,
     trackBottles: true,
+    trackBathroom: false,
     pottyTrained: false,
     noBottles: false,
   };
@@ -358,6 +359,15 @@ export default function CareTab({ child }: CareTabProps) {
       <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 border border-blue-200">
         <h3 className="font-semibold text-gray-800 mb-3">Quick Actions</h3>
         <div className="grid grid-cols-3 gap-3">
+          {careSettings.trackBathroom && (
+            <Button
+              variant="primary"
+              onClick={() => handleAddLog('bathroom')}
+              className="w-full"
+            >
+              🚽 Bathroom
+            </Button>
+          )}
           {careSettings.trackDiapers && !careSettings.pottyTrained && (
             <Button
               variant="primary"

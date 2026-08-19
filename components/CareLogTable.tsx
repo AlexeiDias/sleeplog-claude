@@ -1,5 +1,5 @@
 //components/CareLogTable.tsx
-import { CareLogEntry, DiaperEntry, MealEntry, BottleEntry, NutritionData } from '@/types';
+import { CareLogEntry, DiaperEntry, MealEntry, BottleEntry, BathroomEntry, NutritionData } from '@/types';
 import Button from './Button';
 
 interface CareLogTableProps {
@@ -12,6 +12,15 @@ export default function CareLogTable({ entries, onEdit }: CareLogTableProps) {
   const diaperEntries = entries.filter(e => e.type === 'diaper') as DiaperEntry[];
   const mealEntries = entries.filter(e => e.type === 'meal') as MealEntry[];
   const bottleEntries = entries.filter(e => e.type === 'bottle') as BottleEntry[];
+  const bathroomEntries = entries.filter(e => e.type === 'bathroom') as BathroomEntry[];
+
+  const BATHROOM_LABELS: Record<BathroomEntry['result'], string> = {
+    pee: '💧 Pee',
+    poop: '💩 Poop',
+    both: '💧💩 Both',
+    accident: '⚠️ Accident',
+    tried: '⏱️ Tried, nothing',
+  };
 
   // Calculate totals
   const totalBottleOz = bottleEntries.reduce((sum, entry) => sum + entry.amount, 0);
@@ -42,7 +51,7 @@ export default function CareLogTable({ entries, onEdit }: CareLogTableProps) {
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
         <div className="text-4xl mb-2">📋</div>
         <p className="text-gray-600 text-sm">No care logs for this date</p>
-        <p className="text-gray-500 text-xs mt-1">Use the buttons above to log diapers, meals, or bottles</p>
+        <p className="text-gray-500 text-xs mt-1">Use the buttons above to log diapers, bathroom trips, meals, or bottles</p>
       </div>
     );
   }
@@ -52,11 +61,17 @@ export default function CareLogTable({ entries, onEdit }: CareLogTableProps) {
       {/* Summary Card */}
       <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-4">
         <h3 className="font-semibold text-gray-800 mb-3">📊 Today's Summary</h3>
-        <div className="grid grid-cols-3 gap-4 text-center">
+        <div className={`grid ${bathroomEntries.length > 0 ? 'grid-cols-4' : 'grid-cols-3'} gap-4 text-center`}>
           <div>
             <div className="text-2xl font-bold text-blue-600">{diaperEntries.length}</div>
             <div className="text-xs text-gray-600">Diaper Changes</div>
           </div>
+          {bathroomEntries.length > 0 && (
+            <div>
+              <div className="text-2xl font-bold text-teal-600">{bathroomEntries.length}</div>
+              <div className="text-xs text-gray-600">Bathroom</div>
+            </div>
+          )}
           <div>
             <div className="text-2xl font-bold text-green-600">{mealEntries.length}</div>
             <div className="text-xs text-gray-600">Meals</div>
@@ -112,6 +127,66 @@ export default function CareLogTable({ entries, onEdit }: CareLogTableProps) {
                         {entry.diaperType === 'both' && '💧💩'}
                         {' '}
                         {entry.diaperType.charAt(0).toUpperCase() + entry.diaperType.slice(1)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 max-w-xs">
+                      <div className="truncate" title={entry.comments || '-'}>
+                        {entry.comments || '-'}
+                      </div>
+                      {entry.lastEditedAt && (
+                        <div className="text-xs text-gray-400 italic mt-1">
+                          {formatEditInfo(entry)}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900 whitespace-nowrap">
+                      {entry.staffInitials}
+                    </td>
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <button
+                        onClick={() => onEdit(entry)}
+                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                        title="Edit entry"
+                      >
+                        ✏️ Edit
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Bathroom */}
+      {bathroomEntries.length > 0 && (
+        <div className="border border-gray-200 rounded-lg overflow-hidden">
+          <div className="bg-teal-50 px-4 py-3 border-b border-gray-200">
+            <h3 className="font-semibold text-gray-800">🚽 Bathroom ({bathroomEntries.length})</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Time</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Result</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Comments</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Staff</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-600">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {bathroomEntries.map((entry) => (
+                  <tr key={entry.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
+                      {formatTime(entry.timestamp)}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                        entry.result === 'accident' ? 'bg-red-100 text-red-800' : 'bg-teal-100 text-teal-800'
+                      }`}>
+                        {BATHROOM_LABELS[entry.result] || entry.result}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600 max-w-xs">
