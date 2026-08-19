@@ -230,6 +230,19 @@ service cloud.firestore {
         allow read, write: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
       }
 
+      // --- SUPPLY INVENTORY ---
+      // Path: children/{childId}/inventory/{kind}
+      //
+      // Parents may read: they were told the count so they know when to send
+      // more, which is the point of tracking it. Only staff may change it —
+      // the number has to match what is physically on the shelf here.
+      match /inventory/{kind} {
+        allow read: if (isAuthenticated() && belongsToDaycare(getChildDaycareId(childId)))
+                       || isParentOfChild(childId);
+        allow create, update: if isAuthenticated() && belongsToDaycare(getChildDaycareId(childId));
+        allow delete: if isAdminOfDaycare(getChildDaycareId(childId));
+      }
+
       // --- CARE LOGS ---
       // Path: children/{childId}/careLogs/{dateKey}/entries/{entryId}
       match /careLogs/{dateKey}/entries/{entryId} {

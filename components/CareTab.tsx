@@ -9,6 +9,7 @@ import CareLogModal from './CareLogModal';
 import CareLogTable from './CareLogTable';
 import EditCareLogModal from './EditCareLogModal';
 import { generateCareLogHTML } from '@/utils/reportGenerator';
+import InventoryPanel from './InventoryPanel';
 
 interface CareTabProps {
   child: Child;
@@ -348,6 +349,11 @@ export default function CareTab({ child }: CareTabProps) {
 
   return (
     <div className="space-y-6">
+      {/* Supplies — placed above the log so a low count is seen before the
+          next diaper or bottle is recorded, not after. Recounts whenever
+          today's entries change. */}
+      <InventoryPanel child={child} refreshKey={entries.length} />
+
       {/* Quick Action Buttons */}
       <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 border border-blue-200">
         <h3 className="font-semibold text-gray-800 mb-3">Quick Actions</h3>
