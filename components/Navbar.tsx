@@ -8,6 +8,40 @@ import { useAuth } from '@/contexts/AuthContext';
 import Button from './Button';
 import { useStaffUnreadThreads } from '@/components/messaging/useUnreadMessages';
 
+/**
+ * Messages link for the top bar. Messaging is the second most-used part of the
+ * app, so it sits in the bar itself at every screen size rather than inside the
+ * menu, where a new message could sit unseen until someone went looking.
+ */
+function MessagesLink({
+  unreadCount,
+  compact = false,
+}: {
+  unreadCount: number;
+  compact?: boolean;
+}) {
+  return (
+    <Link
+      href="/messages"
+      className={`text-gray-600 hover:text-gray-900 relative ${compact ? 'text-sm' : ''}`}
+      aria-label={
+        unreadCount > 0 ? `Messages, ${unreadCount} unread` : 'Messages'
+      }
+    >
+      {compact ? '💬' : '💬 Messages'}
+      {unreadCount > 0 && (
+        <span
+          className={`absolute -top-2 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-600 text-white text-[11px] font-medium flex items-center justify-center ${
+            compact ? '-right-2' : '-right-3'
+          }`}
+        >
+          {unreadCount}
+        </span>
+      )}
+    </Link>
+  );
+}
+
 export default function Navbar() {
   const { user, logout } = useAuth();
   const router = useRouter();
@@ -58,7 +92,7 @@ export default function Navbar() {
           <div className="flex items-center">
             {/* Logo */}
             <Link href="/dashboard">
-              <h1 className="text-xl sm:text-2xl font-bold text-blue-900 cursor-pointer">💤 SleepLog</h1>
+              <h1 className="text-lg sm:text-2xl font-bold text-blue-900 cursor-pointer">💤 SleepLog</h1>
             </Link>
             
             {/* Desktop Navigation - Always visible */}
@@ -112,10 +146,12 @@ export default function Navbar() {
                   🖥️ Kiosk
                 </Link>
               )}
+
+              <MessagesLink unreadCount={unreadCount} />
             </div>
 
             {/* Mobile Navigation - Primary links always visible */}
-            <div className="flex sm:hidden items-center ml-4 space-x-3">
+            <div className="flex sm:hidden items-center ml-3 space-x-2.5">
               <Link href="/dashboard" className="text-gray-600 hover:text-gray-900 text-sm">
                 Home
               </Link>
@@ -165,6 +201,8 @@ export default function Navbar() {
                   🖥️
                 </Link>
               )}
+
+              <MessagesLink unreadCount={unreadCount} compact />
             </div>
           </div>
           
@@ -175,17 +213,6 @@ export default function Navbar() {
                 Staff
               </Link>
             )}
-            <Link href="/messages" className="text-gray-600 hover:text-gray-900 relative">
-              Messages
-              {unreadCount > 0 && (
-                <span
-                  className="absolute -top-2 -right-3 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-600 text-white text-[11px] font-medium flex items-center justify-center"
-                  aria-label={`${unreadCount} unread conversations`}
-                >
-                  {unreadCount}
-                </span>
-              )}
-            </Link>
             <Link href="/analytics" className="text-gray-600 hover:text-gray-900">
               Analytics
             </Link>
@@ -258,18 +285,6 @@ export default function Navbar() {
                         👥 Staff
                       </Link>
                     )}
-                    <Link
-                      href="/messages"
-                      className="flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                    >
-                      <span>💬 Messages</span>
-                      {unreadCount > 0 && (
-                        <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-blue-600 text-white text-[11px] font-medium flex items-center justify-center">
-                          {unreadCount}
-                        </span>
-                      )}
-                    </Link>
                     <Link
                       href="/analytics"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
