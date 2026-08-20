@@ -470,6 +470,50 @@ await check('messaging', 'parent CANNOT touch another family thread', 'deny', ()
   updateDoc(doc(as('parentA_uid', 'parenta@x.com'), 'messageThreads', FAMILY_B),
     { lastReadByParentAt: new Date() }));
 
+// ─────────────────────────────────────────────────────────────
+// MESSAGE REACTIONS
+// Document ID is the reacting uid, so one-each and no-forgery come from the
+// path. Both sides of a private thread may react to it.
+// ─────────────────────────────────────────────────────────────
+
+await check('msg-reactions', 'staff CAN react to a family message', 'allow', () =>
+  setDoc(doc(as('staff_uid', 'staff@lsd.com'),
+    'messageThreads', FAMILY_A, 'messages', 'm1', 'reactions', 'staff_uid'),
+    { emoji: '\u2764\ufe0f', byName: 'Staff', byRole: 'staff' }));
+
+await check('msg-reactions', 'parent CAN react in their own thread', 'allow', () =>
+  setDoc(doc(as('parentA_uid', 'parenta@x.com'),
+    'messageThreads', FAMILY_A, 'messages', 'm1', 'reactions', 'parentA_uid'),
+    { emoji: '\ud83d\udc4d', byName: 'Parent A', byRole: 'parent' }));
+
+await check('msg-reactions', 'parent CAN read reactions in own thread', 'allow', () =>
+  getDoc(doc(as('parentA_uid', 'parenta@x.com'),
+    'messageThreads', FAMILY_A, 'messages', 'm1', 'reactions', 'staff_uid')));
+
+await check('msg-reactions', 'parent CANNOT react as someone else', 'deny', () =>
+  setDoc(doc(as('parentA_uid', 'parenta@x.com'),
+    'messageThreads', FAMILY_A, 'messages', 'm1', 'reactions', 'staff_uid'),
+    { emoji: '\ud83d\udc4d', byName: 'Not me', byRole: 'parent' }));
+
+await check('msg-reactions', 'parent CANNOT react in ANOTHER family thread', 'deny', () =>
+  setDoc(doc(as('parentA_uid', 'parenta@x.com'),
+    'messageThreads', FAMILY_B, 'messages', 'm1', 'reactions', 'parentA_uid'),
+    { emoji: '\ud83d\udc4d', byName: 'Parent A', byRole: 'parent' }));
+
+await check('msg-reactions', 'parent CANNOT read ANOTHER family reactions', 'deny', () =>
+  getDoc(doc(as('parentA_uid', 'parenta@x.com'),
+    'messageThreads', FAMILY_B, 'messages', 'm1', 'reactions', 'staff_uid')));
+
+await check('msg-reactions', 'a disallowed emoji is rejected', 'deny', () =>
+  setDoc(doc(as('parentA_uid', 'parenta@x.com'),
+    'messageThreads', FAMILY_A, 'messages', 'm1', 'reactions', 'parentA_uid'),
+    { emoji: '\ud83d\udca9', byName: 'Parent A', byRole: 'parent' }));
+
+await check('msg-reactions', 'signed-out visitor CANNOT react', 'deny', () =>
+  setDoc(doc(testEnv.unauthenticatedContext().firestore(),
+    'messageThreads', FAMILY_A, 'messages', 'm1', 'reactions', 'anon'),
+    { emoji: '\u2764\ufe0f', byName: 'Anon', byRole: 'parent' }));
+
 await check('messaging', 'messages are immutable', 'deny', () =>
   updateDoc(doc(as('staff_uid', 'staff@lsd.com'),
     'messageThreads', FAMILY_A, 'messages', 'm1'), { text: 'edited' }));
