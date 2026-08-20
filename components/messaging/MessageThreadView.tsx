@@ -18,6 +18,7 @@ import {
   notifyDaycareOfParentMessage,
   notifyParentsOfStaffMessage,
 } from '@/lib/messageNotifications';
+import MessageReactions from '@/components/messaging/MessageReactions';
 
 interface MessageThreadViewProps {
   familyId: string;
@@ -297,6 +298,16 @@ export default function MessageThreadView({
                   >
                     {formatMessageTime(message.createdAt)}
                   </p>
+
+                  {/* Either side may react. A photo can be acknowledged without
+                      sending "thanks!" and pushing the conversation along. */}
+                  <MessageReactions
+                    familyId={familyId}
+                    messageId={message.id}
+                    currentUser={currentUser}
+                    viewerRole={viewerRole}
+                    onDark={mine}
+                  />
                 </div>
               </div>
             );

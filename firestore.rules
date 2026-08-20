@@ -356,6 +356,25 @@ service cloud.firestore {
         // would undermine it; deletion is admin-only for moderation.
         allow update: if false;
         allow delete: if isAdmin();
+
+        // --- REACTIONS ---
+        // Document ID is the reacting user's uid: one reaction each,
+        // changeable, removable, and impossible to cast on someone else's
+        // behalf. Authorised from the path alone, like the messages above, so
+        // no document read is needed.
+        match /reactions/{userId} {
+          allow read: if isParentOfFamily(threadId)
+                         || (isAuthenticated() && getUserData().role in ['admin', 'staff']);
+
+          allow create, update: if request.auth.uid == userId
+                                   && request.resource.data.emoji in
+                                        ['❤️', '😊', '👏', '🎉', '👍']
+                                   && (isParentOfFamily(threadId)
+                                       || (isAuthenticated()
+                                           && getUserData().role in ['admin', 'staff']));
+
+          allow delete: if request.auth.uid == userId;
+        }
       }
     }
 
