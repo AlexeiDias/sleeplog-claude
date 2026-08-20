@@ -31,13 +31,50 @@ export const INVENTORY_KINDS: InventoryKind[] = ['diapers', 'formula'];
 /** How stock of each kind is spoken about. */
 export const KIND_LABELS: Record<InventoryKind, { name: string; unit: string; unitOne: string }> = {
   diapers: { name: 'Diapers', unit: 'diapers', unitOne: 'diaper' },
-  formula: { name: 'Formula', unit: 'oz', unitOne: 'oz' },
+  formula: { name: 'Formula', unit: 'scoops', unitOne: 'scoop' },
 };
+
+/**
+ * Formula is stock-kept in SCOOPS of powder, not in ounces of made bottle.
+ *
+ * A 6oz bottle is 6oz of water plus 3 scoops. Deducting 6 from stock treated
+ * the water as if it were formula and burned through a tin about four times
+ * faster than reality.
+ *
+ * Defaults follow the mixing guide on the tin in use: one level scoop per 2 fl
+ * oz of water, 8.8g per scoop. Both are stored on each child's formula record
+ * so a child on a different brand or a concentrated formula is handled without
+ * changing anything globally.
+ */
+export const DEFAULT_OZ_PER_SCOOP = 2;
+export const DEFAULT_GRAMS_PER_SCOOP = 8.8;
+
+export interface FormulaRatio {
+  ozPerScoop: number;
+  gramsPerScoop: number;
+}
+
+export const DEFAULT_FORMULA_RATIO: FormulaRatio = {
+  ozPerScoop: DEFAULT_OZ_PER_SCOOP,
+  gramsPerScoop: DEFAULT_GRAMS_PER_SCOOP,
+};
+
+/** Scoops of powder a bottle of this many fluid ounces consumes. */
+export function scoopsForBottle(bottleOz: number, ratio: FormulaRatio): number {
+  const perScoop = ratio.ozPerScoop > 0 ? ratio.ozPerScoop : DEFAULT_OZ_PER_SCOOP;
+  return bottleOz / perScoop;
+}
+
+export function gramsToScoops(grams: number, ratio: FormulaRatio): number {
+  const perScoop = ratio.gramsPerScoop > 0 ? ratio.gramsPerScoop : DEFAULT_GRAMS_PER_SCOOP;
+  return grams / perScoop;
+}
 
 /** Defaults chosen to give roughly a day's warning at typical usage. */
 export const DEFAULT_LOW_AT: Record<InventoryKind, number> = {
   diapers: 6,
-  formula: 24,
+  // Roughly a day of bottles for a young baby, in scoops.
+  formula: 12,
 };
 
 /**
@@ -53,6 +90,13 @@ export interface InventoryDoc {
   baselineAt: Date;
   baselineDateKey: string;
   lowAt: number;
+  ratio: FormulaRatio;
+  /**
+   * Records written before formula was counted in scoops have no unit and
+   * hold ounces of made bottle. Converting them would be guessing at what was
+   * meant, so they are flagged for a one-off recount instead.
+   */
+  legacyUnit: boolean;
 }
 
 export interface Balance {
@@ -67,6 +111,9 @@ export interface Balance {
   unset: boolean;
   /** The baseline is older than MAX_SCAN_DAYS, so usage is under-counted. */
   stale: boolean;
+  /** Counted in the old ounces-of-bottle unit. Needs one manual recount. */
+  needsRecount: boolean;
+  ratio: FormulaRatio;
 }
 
 function toDate(value: unknown): Date {
@@ -95,6 +142,12 @@ export async function fetchInventoryDoc(
     baselineAt: toDate(data.baselineAt),
     baselineDateKey: (data.baselineDateKey as string) || getDateKey(toDate(data.baselineAt)),
     lowAt: data.lowAt === undefined ? DEFAULT_LOW_AT[kind] : Number(data.lowAt),
+    ratio: {
+      ozPerScoop: Number(data.ozPerScoop) || DEFAULT_OZ_PER_SCOOP,
+      gramsPerScoop: Number(data.gramsPerScoop) || DEFAULT_GRAMS_PER_SCOOP,
+    },
+    // Only formula changed unit; a diaper is a diaper.
+    legacyUnit: kind === 'formula' && data.unit !== 'scoops',
   };
 }
 
@@ -132,7 +185,8 @@ async function usageSince(
   childId: string,
   kind: InventoryKind,
   since: Date,
-  dateKeys: string[]
+  dateKeys: string[],
+  ratio: FormulaRatio
 ): Promise<number> {
   let used = 0;
 
@@ -151,7 +205,9 @@ async function usageSince(
       if (kind === 'diapers' && data.type === 'diaper') {
         used += 1;
       } else if (kind === 'formula' && data.type === 'bottle') {
-        used += Number(data.amount) || 0;
+        // data.amount is the size of the made bottle in fluid ounces. What
+        // leaves the tin is scoops of powder.
+        used += scoopsForBottle(Number(data.amount) || 0, ratio);
       }
     });
   }
@@ -175,11 +231,31 @@ export async function computeBalance(
       isLow: false,
       unset: true,
       stale: false,
+      needsRecount: false,
+      ratio: DEFAULT_FORMULA_RATIO,
+    };
+  }
+
+  // A legacy formula count is in ounces of made bottle. Reporting it against
+  // scoops of usage would read wildly wrong in both directions, so report
+  // nothing and ask for one recount.
+  if (record.legacyUnit) {
+    return {
+      kind,
+      remaining: 0,
+      used: 0,
+      baseline: record.baseline,
+      lowAt: record.lowAt,
+      isLow: false,
+      unset: false,
+      stale: false,
+      needsRecount: true,
+      ratio: record.ratio,
     };
   }
 
   const { keys, truncated } = dateKeysFrom(record.baselineDateKey);
-  const used = await usageSince(childId, kind, record.baselineAt, keys);
+  const used = await usageSince(childId, kind, record.baselineAt, keys, record.ratio);
   const remaining = record.baseline - used;
 
   return {
@@ -191,6 +267,8 @@ export async function computeBalance(
     isLow: remaining <= record.lowAt,
     unset: false,
     stale: truncated,
+    needsRecount: false,
+    ratio: record.ratio,
   };
 }
 
@@ -211,16 +289,22 @@ export async function addStock({
   kind,
   amount,
   lowAt,
+  ratio,
   user,
 }: {
   child: Child;
   kind: InventoryKind;
   amount: number;
   lowAt?: number;
+  ratio?: FormulaRatio;
   user: User;
 }): Promise<Balance> {
   const current = await computeBalance(child.id, kind);
-  const baseline = (current.unset ? 0 : current.remaining) + amount;
+  // A legacy count is in the wrong unit, so adding to it would carry the error
+  // forward. Treat the entered number as the whole new count.
+  const startFrom = current.unset || current.needsRecount ? 0 : current.remaining;
+  const baseline = startFrom + amount;
+  const nextRatio = ratio || current.ratio;
   const now = new Date();
   const threshold = lowAt === undefined ? current.lowAt : lowAt;
 
@@ -235,6 +319,11 @@ export async function addStock({
       baselineAt: serverTimestamp(),
       baselineDateKey: getDateKey(now),
       lowAt: threshold,
+      // Stamps this record as counted in scoops. Its absence is what marks a
+      // record as written under the old ounces-of-bottle meaning.
+      unit: kind === 'formula' ? 'scoops' : 'count',
+      ozPerScoop: nextRatio.ozPerScoop,
+      gramsPerScoop: nextRatio.gramsPerScoop,
       updatedBy: user.uid,
       updatedByName: displayName(user),
       updatedAt: serverTimestamp(),
@@ -251,6 +340,8 @@ export async function addStock({
     isLow: baseline <= threshold,
     unset: false,
     stale: false,
+    needsRecount: false,
+    ratio: nextRatio,
   };
 }
 
@@ -263,15 +354,18 @@ export async function setStock({
   kind,
   amount,
   lowAt,
+  ratio,
   user,
 }: {
   child: Child;
   kind: InventoryKind;
   amount: number;
   lowAt?: number;
+  ratio?: FormulaRatio;
   user: User;
 }): Promise<void> {
   const now = new Date();
+  const nextRatio = ratio || DEFAULT_FORMULA_RATIO;
 
   await setDoc(
     inventoryRef(child.id, kind),
@@ -284,6 +378,9 @@ export async function setStock({
       baselineAt: serverTimestamp(),
       baselineDateKey: getDateKey(now),
       ...(lowAt === undefined ? {} : { lowAt }),
+      unit: kind === 'formula' ? 'scoops' : 'count',
+      ozPerScoop: nextRatio.ozPerScoop,
+      gramsPerScoop: nextRatio.gramsPerScoop,
       updatedBy: user.uid,
       updatedByName: displayName(user),
       updatedAt: serverTimestamp(),
@@ -308,4 +405,15 @@ export function formatBalance(balance: Balance): string {
   const labels = KIND_LABELS[kind];
   const rounded = Math.round(remaining * 10) / 10;
   return `${rounded} ${Math.abs(rounded) === 1 ? labels.unitOne : labels.unit}`;
+}
+
+/**
+ * Scoops mean little on their own, so say what they amount to: roughly how
+ * much powder by weight, and roughly how many ounces of bottle they will make.
+ */
+export function formulaAside(balance: Balance): string | null {
+  if (balance.kind !== 'formula' || balance.unset || balance.needsRecount) return null;
+  const grams = Math.round(balance.remaining * balance.ratio.gramsPerScoop);
+  const bottleOz = Math.round(balance.remaining * balance.ratio.ozPerScoop);
+  return `about ${grams} g, enough for about ${bottleOz} oz of bottles`;
 }

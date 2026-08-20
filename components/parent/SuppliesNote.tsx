@@ -22,7 +22,11 @@ export default function SuppliesNote({ childId }: { childId: string }) {
 
     computeBalances(childId)
       .then((all) => {
-        if (!cancelled) setBalances(all.filter((b) => !b.unset));
+        if (!cancelled) {
+          // A record still in the old unit would show a number that means
+          // nothing. Hide it until staff recount.
+          setBalances(all.filter((b) => !b.unset && !b.needsRecount));
+        }
       })
       .catch((err) => console.error('Could not read supplies:', err));
 
@@ -45,6 +49,8 @@ export default function SuppliesNote({ childId }: { childId: string }) {
           }`}
         >
           {KIND_LABELS[balance.kind].name}: {formatBalance(balance)}
+          {balance.kind === 'formula' &&
+            ` (about ${Math.round(balance.remaining * balance.ratio.ozPerScoop)} oz of bottles)`}
           {balance.isLow && ' — please send more'}
         </span>
       ))}
