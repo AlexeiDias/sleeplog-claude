@@ -13,6 +13,9 @@ import {
   computeBalances,
   kindsForChild,
   formatBalance,
+  formulaAside,
+  gramsToScoops,
+  DEFAULT_FORMULA_RATIO,
 } from '@/lib/inventory';
 import { Child } from '@/types';
 
@@ -39,6 +42,9 @@ export default function InventoryPanel({
   const [editing, setEditing] = useState<InventoryKind | null>(null);
   const [amount, setAmount] = useState('');
   const [mode, setMode] = useState<'add' | 'set'>('add');
+  // Formula only: type what the tin says in grams and let the app divide,
+  // rather than doing it on a phone at the counter.
+  const [entryUnit, setEntryUnit] = useState<'scoops' | 'grams'>('scoops');
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
@@ -61,20 +67,30 @@ export default function InventoryPanel({
   }, [load]);
 
   async function handleSubmit(kind: InventoryKind) {
-    const value = Number(amount);
-    if (!user || !Number.isFinite(value) || value < 0) {
+    const typed = Number(amount);
+    if (!user || !Number.isFinite(typed) || typed < 0) {
       setError('Enter a number.');
       return;
     }
+
+    const current = balances?.find((b) => b.kind === kind);
+    const ratio = current?.ratio || DEFAULT_FORMULA_RATIO;
+
+    // Grams entry is a convenience on the way in; stock is always kept in
+    // scoops so it matches what a bottle actually consumes.
+    const value =
+      kind === 'formula' && entryUnit === 'grams'
+        ? gramsToScoops(typed, ratio)
+        : typed;
 
     setBusy(kind);
     setError('');
 
     try {
       if (mode === 'add') {
-        await addStock({ child, kind, amount: value, user });
+        await addStock({ child, kind, amount: value, ratio, user });
       } else {
-        await setStock({ child, kind, amount: value, user });
+        await setStock({ child, kind, amount: value, ratio, user });
       }
       setEditing(null);
       setAmount('');
@@ -108,6 +124,8 @@ export default function InventoryPanel({
                   <p className="text-sm font-medium text-gray-800">{labels.name}</p>
                   {balance.unset ? (
                     <p className="text-sm text-gray-500">Not counted yet</p>
+                  ) : balance.needsRecount ? (
+                    <p className="text-sm text-amber-700">Needs recounting</p>
                   ) : (
                     <p
                       className={`text-sm ${
@@ -123,25 +141,42 @@ export default function InventoryPanel({
                       )}
                     </p>
                   )}
+
+                  {formulaAside(balance) && (
+                    <p className="text-xs text-gray-400">{formulaAside(balance)}</p>
+                  )}
                 </div>
 
                 <Button
                   variant="secondary"
                   onClick={() => {
                     setEditing(isEditing ? null : balance.kind);
-                    setMode(balance.unset ? 'set' : 'add');
+                    setMode(balance.unset || balance.needsRecount ? 'set' : 'add');
+                    setEntryUnit('scoops');
                     setAmount('');
                     setError('');
                   }}
                   className="text-sm shrink-0"
                 >
-                  {isEditing ? 'Cancel' : balance.unset ? 'Count' : '+ Add'}
+                  {isEditing
+                    ? 'Cancel'
+                    : balance.unset || balance.needsRecount
+                    ? 'Count'
+                    : '+ Add'}
                 </Button>
               </div>
 
               {balance.isLow && !balance.unset && (
                 <p className="mt-1 text-xs text-red-700">
                   Running low — ask the family to send more.
+                </p>
+              )}
+
+              {balance.needsRecount && (
+                <p className="mt-1 text-xs text-amber-700">
+                  Formula used to be counted in ounces of made bottle, which
+                  counted the water as if it were powder. It is now counted in
+                  scoops. Count what is in the tin once and this goes away.
                 </p>
               )}
 
@@ -171,6 +206,25 @@ export default function InventoryPanel({
                     ))}
                   </div>
 
+                  {balance.kind === 'formula' && (
+                    <div className="flex gap-2">
+                      {(['scoops', 'grams'] as const).map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => setEntryUnit(option)}
+                          className={`px-3 py-1 rounded-full text-xs font-medium ${
+                            entryUnit === option
+                              ? 'bg-teal-600 text-white'
+                              : 'bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          {option === 'scoops' ? 'In scoops' : 'In grams'}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
                   <div className="flex gap-2">
                     <input
                       type="number"
@@ -179,7 +233,11 @@ export default function InventoryPanel({
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       placeholder={
-                        balance.kind === 'formula' ? 'Ounces' : 'Number of diapers'
+                        balance.kind !== 'formula'
+                          ? 'Number of diapers'
+                          : entryUnit === 'grams'
+                          ? 'Grams on the tin'
+                          : 'Number of scoops'
                       }
                       className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-base"
                     />
@@ -195,9 +253,20 @@ export default function InventoryPanel({
                   </div>
 
                   <p className="text-xs text-gray-500">
-                    {balance.kind === 'formula'
-                      ? 'Ounces of prepared formula. Each bottle logged takes its own ounces off this.'
-                      : 'Each diaper change logged takes one off this.'}
+                    {balance.kind === 'formula' ? (
+                      <>
+                        {entryUnit === 'grams'
+                          ? `Whatever the tin says. ${balance.ratio.gramsPerScoop} g per scoop, so it converts to about ${
+                              amount && Number(amount) > 0
+                                ? Math.round((Number(amount) / balance.ratio.gramsPerScoop) * 10) / 10
+                                : '…'
+                            } scoops.`
+                          : 'Level scoops of powder.'}{' '}
+                        A {balance.ratio.ozPerScoop * 3} oz bottle uses 3 scoops.
+                      </>
+                    ) : (
+                      'Each diaper change logged takes one off this.'
+                    )}
                   </p>
                 </div>
               )}
