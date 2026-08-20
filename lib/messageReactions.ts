@@ -2,9 +2,19 @@
 // Reactions on a private message, so a photo or a note can be acknowledged
 // without sending "thanks!" and pushing the conversation along.
 //
-// Same shape as announcement reactions: the document ID is the reacting user's
-// uid, which makes one-each, changeable, removable and unforgeable fall out of
-// the path rather than needing rules to check anything.
+// Stored flat under the THREAD, not under each message:
+//
+//     messageThreads/{familyId}/reactions/{messageId}_{uid}
+//
+// The first version put them in a subcollection of each message, which meant
+// one onSnapshot listener per message on screen. Thirty messages meant thirty
+// listeners attaching and detaching as the thread rendered, and that churn
+// tripped an internal assertion inside the Firestore SDK
+// (firebase-js-sdk#9267) that took the whole page down. One listener per
+// thread covers every message and cannot churn.
+//
+// The document ID still ends in the reacting user's uid, so one-each,
+// changeable, removable and unforgeable still fall out of the path.
 
 import {
   collection,
@@ -24,20 +34,24 @@ export { ALLOWED_REACTIONS };
 
 export interface MessageReaction {
   uid: string;
+  messageId: string;
   emoji: string;
   byName: string;
   byRole: 'parent' | 'staff';
 }
 
-function reactionsPath(familyId: string, messageId: string) {
-  return collection(db, 'messageThreads', familyId, 'messages', messageId, 'reactions');
+/** Reactions for every message in a thread, keyed by message ID. */
+export type ReactionsByMessage = Record<string, MessageReaction[]>;
+
+export function reactionDocId(messageId: string, uid: string): string {
+  return `${messageId}_${uid}`;
 }
 
 /**
  * Add, change or clear the current user's reaction.
  *
  * Tapping the emoji already showing removes it, which is what every messaging
- * app does and what people expect without being told.
+ * app does and what nobody needs telling.
  */
 export async function setMessageReaction({
   familyId,
@@ -60,10 +74,8 @@ export async function setMessageReaction({
     db,
     'messageThreads',
     familyId,
-    'messages',
-    messageId,
     'reactions',
-    user.uid
+    reactionDocId(messageId, user.uid)
   );
 
   const existing = await getDoc(ref);
@@ -73,6 +85,8 @@ export async function setMessageReaction({
   }
 
   await setDoc(ref, {
+    messageId,
+    uid: user.uid,
     emoji,
     byName: displayName(user),
     byRole: role,
@@ -81,30 +95,45 @@ export async function setMessageReaction({
 }
 
 /**
- * Live reactions for every message in a thread, keyed by message ID.
+ * One listener for every reaction in the thread.
  *
- * One listener per message would mean dozens of listeners on a busy thread, so
- * the caller subscribes per message only for messages currently on screen —
- * see MessageReactions, which does exactly that.
+ * Constrained by the path alone, so the list rule is provable without reading
+ * any document.
  */
-export function subscribeToMessageReactions(
+export function subscribeToThreadReactions(
   familyId: string,
-  messageId: string,
-  onData: (reactions: MessageReaction[]) => void
+  onData: (byMessage: ReactionsByMessage) => void,
+  onError?: (err: unknown) => void
 ) {
   return onSnapshot(
-    reactionsPath(familyId, messageId),
+    collection(db, 'messageThreads', familyId, 'reactions'),
     (snapshot) => {
-      onData(
-        snapshot.docs.map((d) => ({
-          uid: d.id,
-          emoji: (d.data().emoji as string) || '',
-          byName: (d.data().byName as string) || 'Someone',
-          byRole: (d.data().byRole as 'parent' | 'staff') || 'staff',
-        }))
-      );
+      const byMessage: ReactionsByMessage = {};
+
+      snapshot.forEach((d) => {
+        const data = d.data();
+        const messageId = (data.messageId as string) || '';
+        if (!messageId) return;
+
+        const reaction: MessageReaction = {
+          uid: (data.uid as string) || '',
+          messageId,
+          emoji: (data.emoji as string) || '',
+          byName: (data.byName as string) || 'Someone',
+          byRole: (data.byRole as 'parent' | 'staff') || 'staff',
+        };
+
+        const existing = byMessage[messageId];
+        if (existing) existing.push(reaction);
+        else byMessage[messageId] = [reaction];
+      });
+
+      onData(byMessage);
     },
-    (err) => console.error('Message reaction listener error:', err)
+    (err) => {
+      console.error('Thread reaction listener error:', err);
+      onError?.(err);
+    }
   );
 }
 
