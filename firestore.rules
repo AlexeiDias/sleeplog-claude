@@ -336,6 +336,30 @@ service cloud.firestore {
       // Threads are never deleted — message history is a care record.
       allow delete: if false;
 
+      // --- REACTIONS ---
+      // Flat under the thread rather than under each message, so the client
+      // needs ONE listener for the whole conversation. Per-message listeners
+      // churned badly enough to trip an internal assertion in the SDK.
+      //
+      // The document ID is "{messageId}_{uid}", which is checked below — that
+      // is what keeps a reaction to one per person per message and stops
+      // anyone casting one in someone else's name.
+      match /reactions/{reactionId} {
+        allow read: if isParentOfFamily(threadId)
+                       || (isAuthenticated() && getUserData().role in ['admin', 'staff']);
+
+        allow create, update: if request.resource.data.uid == request.auth.uid
+                                 && reactionId ==
+                                      request.resource.data.messageId + '_' + request.auth.uid
+                                 && request.resource.data.emoji in
+                                      ['❤️', '😊', '👏', '🎉', '👍']
+                                 && (isParentOfFamily(threadId)
+                                     || (isAuthenticated()
+                                         && getUserData().role in ['admin', 'staff']));
+
+        allow delete: if resource.data.uid == request.auth.uid;
+      }
+
       match /messages/{messageId} {
         // threadId == familyId, so no document read is needed here.
         allow read: if isParentOfFamily(threadId)
@@ -357,24 +381,6 @@ service cloud.firestore {
         allow update: if false;
         allow delete: if isAdmin();
 
-        // --- REACTIONS ---
-        // Document ID is the reacting user's uid: one reaction each,
-        // changeable, removable, and impossible to cast on someone else's
-        // behalf. Authorised from the path alone, like the messages above, so
-        // no document read is needed.
-        match /reactions/{userId} {
-          allow read: if isParentOfFamily(threadId)
-                         || (isAuthenticated() && getUserData().role in ['admin', 'staff']);
-
-          allow create, update: if request.auth.uid == userId
-                                   && request.resource.data.emoji in
-                                        ['❤️', '😊', '👏', '🎉', '👍']
-                                   && (isParentOfFamily(threadId)
-                                       || (isAuthenticated()
-                                           && getUserData().role in ['admin', 'staff']));
-
-          allow delete: if request.auth.uid == userId;
-        }
       }
     }
 

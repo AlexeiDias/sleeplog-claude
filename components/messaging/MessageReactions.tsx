@@ -1,12 +1,11 @@
 //components/messaging/MessageReactions.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   ALLOWED_REACTIONS,
   MessageReaction,
   setMessageReaction,
-  subscribeToMessageReactions,
   summarise,
 } from '@/lib/messageReactions';
 import { User } from '@/types';
@@ -14,36 +13,38 @@ import { User } from '@/types';
 /**
  * Reactions under one message bubble.
  *
- * Shown only when there is something to show or the picker is open, so a quiet
- * thread does not grow a row of empty controls under every message.
+ * Presentational: the thread owns a single listener for every reaction in it
+ * and passes this component the ones for its message. It deliberately does not
+ * subscribe on its own — one listener per message is what crashed the SDK.
  */
 export default function MessageReactions({
   familyId,
   messageId,
+  reactions,
   currentUser,
   viewerRole,
   onDark,
 }: {
   familyId: string;
   messageId: string;
+  reactions: MessageReaction[];
   currentUser: User;
   viewerRole: 'parent' | 'staff';
   /** True inside your own blue bubble, where grey-on-blue is unreadable. */
   onDark?: boolean;
 }) {
-  const [reactions, setReactions] = useState<MessageReaction[]>([]);
   const [picking, setPicking] = useState(false);
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    return subscribeToMessageReactions(familyId, messageId, setReactions);
-  }, [familyId, messageId]);
+  // A swallowed error here looked exactly like a dead button: only the success
+  // path closes the picker. Say what went wrong, on screen.
+  const [error, setError] = useState('');
 
   const { counts, mine, names } = summarise(reactions, currentUser.uid);
   const chosen = Object.keys(counts);
 
   async function choose(emoji: string) {
     setBusy(true);
+    setError('');
     try {
       await setMessageReaction({
         familyId,
@@ -54,7 +55,9 @@ export default function MessageReactions({
       });
       setPicking(false);
     } catch (err) {
+      const code = (err as { code?: string })?.code;
       console.error('Could not save reaction:', err);
+      setError(code ? `Could not save reaction (${code})` : 'Could not save reaction');
     } finally {
       setBusy(false);
     }
@@ -62,6 +65,11 @@ export default function MessageReactions({
 
   return (
     <div className="flex items-center gap-1 flex-wrap mt-1">
+      {error && (
+        <span className={`text-[11px] w-full ${onDark ? 'text-blue-100' : 'text-red-600'}`}>
+          {error}
+        </span>
+      )}
       {chosen.map((emoji) => (
         <button
           key={emoji}

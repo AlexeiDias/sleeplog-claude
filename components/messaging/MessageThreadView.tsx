@@ -19,6 +19,10 @@ import {
   notifyParentsOfStaffMessage,
 } from '@/lib/messageNotifications';
 import MessageReactions from '@/components/messaging/MessageReactions';
+import {
+  ReactionsByMessage,
+  subscribeToThreadReactions,
+} from '@/lib/messageReactions';
 
 interface MessageThreadViewProps {
   familyId: string;
@@ -37,6 +41,10 @@ export default function MessageThreadView({
   emptyHint,
 }: MessageThreadViewProps) {
   const [messages, setMessages] = useState<Message[]>([]);
+  // One listener for every reaction in the thread. Subscribing per message
+  // meant dozens of listeners churning as the thread rendered, which tripped
+  // an internal assertion in the Firestore SDK and took the page down.
+  const [reactions, setReactions] = useState<ReactionsByMessage>({});
   const [text, setText] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,6 +52,10 @@ export default function MessageThreadView({
   const [error, setError] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    return subscribeToThreadReactions(familyId, setReactions);
+  }, [familyId]);
 
   useEffect(() => {
     // Real-time so both sides see messages appear without refreshing. The
@@ -304,6 +316,7 @@ export default function MessageThreadView({
                   <MessageReactions
                     familyId={familyId}
                     messageId={message.id}
+                    reactions={reactions[message.id] || []}
                     currentUser={currentUser}
                     viewerRole={viewerRole}
                     onDark={mine}
