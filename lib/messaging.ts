@@ -41,18 +41,102 @@ export function displayName(user: User): string {
 export const MAX_ATTACHMENT_MB = 5;
 export const MAX_ATTACHMENTS_PER_MESSAGE = 4;
 
-export function validateAttachment(file: File): string | null {
-  if (!file.type.startsWith('image/')) {
-    // Deliberate, not a limitation to be lifted casually. Storage download
-    // URLs bypass security rules, so any attachment is readable by anyone
-    // holding the link. That is tolerable for photos and not for documents —
-    // which is why documents get their own phase with server-side access
-    // control rather than being allowed through here.
-    return `${file.name} is not a photo. Documents can't be sent through messages yet — please contact the daycare directly.`;
+// Short clips only. The limit is DURATION, not megabytes: nobody can judge
+// whether a video is under 40MB by looking at it, but everyone can count to
+// ten. The size cap below is only a backstop for a very high-resolution ten
+// seconds, and is what storage.rules enforces, since rules cannot see how long
+// a video runs.
+export const MAX_VIDEO_SECONDS = 10;
+export const MAX_VIDEO_MB = 60;
+
+export function isVideo(file: { type: string }): boolean {
+  return file.type.startsWith('video/');
+}
+
+/**
+ * Synchronous checks: type and size.
+ *
+ * Documents stay blocked, and not casually. Storage download URLs bypass
+ * security rules, so any attachment is readable by anyone holding the link.
+ * That is tolerable for photos and short clips of a child, whose parents are
+ * the audience anyway; it is not tolerable for medical or contractual
+ * documents, which need server-side access control instead.
+ */
+export function validateAttachment(
+  file: File,
+  options: { allowVideo?: boolean } = {}
+): string | null {
+  const video = isVideo(file);
+
+  if (video && !options.allowVideo) {
+    return `${file.name} is a video. Videos can only be sent in messages.`;
   }
+
+  if (!file.type.startsWith('image/') && !video) {
+    return `${file.name} is not a photo or a video. Documents can't be sent through messages yet — please contact the daycare directly.`;
+  }
+
+  if (video) {
+    if (file.size > MAX_VIDEO_MB * 1024 * 1024) {
+      return `${file.name} is larger than ${MAX_VIDEO_MB}MB. Record a shorter clip, or set the camera to a lower resolution.`;
+    }
+    return null;
+  }
+
   if (file.size > MAX_ATTACHMENT_MB * 1024 * 1024) {
     return `${file.name} is larger than ${MAX_ATTACHMENT_MB}MB.`;
   }
+  return null;
+}
+
+/** Length of a video file, read from its metadata without uploading it. */
+export function readVideoDuration(file: File): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const probe = document.createElement('video');
+    probe.preload = 'metadata';
+
+    const done = (fn: () => void) => {
+      URL.revokeObjectURL(url);
+      probe.removeAttribute('src');
+      fn();
+    };
+
+    probe.onloadedmetadata = () => {
+      const seconds = probe.duration;
+      done(() => resolve(Number.isFinite(seconds) ? seconds : NaN));
+    };
+    probe.onerror = () => done(() => reject(new Error('Could not read the video')));
+
+    probe.src = url;
+  });
+}
+
+/**
+ * Full check including length, which needs the file's metadata and so cannot
+ * be synchronous.
+ *
+ * A duration that cannot be read is allowed through rather than blocked: some
+ * phone formats do not report it, and refusing a clip because the browser is
+ * coy about its length would be worse than letting a slightly long one past.
+ * The size cap still applies, and storage.rules still has the final word.
+ */
+export async function validateAttachmentAsync(
+  file: File,
+  options: { allowVideo?: boolean } = {}
+): Promise<string | null> {
+  const basic = validateAttachment(file, options);
+  if (basic || !isVideo(file)) return basic;
+
+  try {
+    const seconds = await readVideoDuration(file);
+    if (Number.isFinite(seconds) && seconds > MAX_VIDEO_SECONDS + 0.5) {
+      return `${file.name} is ${Math.round(seconds)} seconds. Videos must be ${MAX_VIDEO_SECONDS} seconds or shorter.`;
+    }
+  } catch {
+    // Unreadable metadata — fall through on the size cap alone.
+  }
+
   return null;
 }
 

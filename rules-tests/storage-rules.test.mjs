@@ -46,6 +46,7 @@ const png = () =>
   new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const imageMeta = { contentType: 'image/png' };
 const pdfMeta = { contentType: 'application/pdf' };
+const videoMeta = { contentType: 'video/mp4' };
 
 const staff = () => testEnv.authenticatedContext('staff_uid', {
   email: 'staff@lsd.com', email_verified: true,
@@ -123,6 +124,29 @@ await check('messages', 'non-image message attachment is rejected', 'deny', () =
 await check('messages', 'message photo over 5MB is rejected', 'deny', () =>
   uploadBytes(ref(staff(), 'messages/family_a/msg_5/huge.jpg'),
     new Uint8Array(5 * 1024 * 1024 + 1024), imageMeta));
+
+await check('messages', 'staff CAN upload a short message video', 'allow', () =>
+  uploadBytes(ref(staff(), 'messages/family_a/msg_6/clip.mp4'), png(), videoMeta));
+
+await check('messages', 'parent CAN upload a short message video', 'allow', () =>
+  uploadBytes(ref(parent(), 'messages/family_a/msg_7/clip.mp4'), png(), videoMeta));
+
+await check('messages', 'signed-out CANNOT upload a message video', 'deny', () =>
+  uploadBytes(ref(anon(), 'messages/family_a/msg_8/clip.mp4'), png(), videoMeta));
+
+await check('messages', 'message video over 60MB is rejected', 'deny', () =>
+  uploadBytes(ref(staff(), 'messages/family_a/msg_9/huge.mp4'),
+    new Uint8Array(60 * 1024 * 1024 + 1024), videoMeta));
+
+await check('messages', 'a video sized like a photo is still allowed', 'allow', () =>
+  uploadBytes(ref(staff(), 'messages/family_a/msg_10/tiny.mp4'),
+    new Uint8Array(6 * 1024 * 1024), videoMeta));
+
+await check('constraints', 'video upload to child photos is rejected', 'deny', () =>
+  uploadBytes(ref(staff(), 'children/child_a/clip.mp4'), png(), videoMeta));
+
+await check('constraints', 'video upload to announcements is rejected', 'deny', () =>
+  uploadBytes(ref(staff(), 'announcements/ann_9/clip.mp4'), png(), videoMeta));
 
 // ── Announcement photos ────────────────────────────────────────
 await check('announcements', 'staff CAN upload an announcement photo', 'allow', () =>

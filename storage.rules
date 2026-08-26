@@ -31,6 +31,13 @@ service firebase.storage {
       return request.resource.contentType.matches('image/.*');
     }
 
+    // Short clips in messages only. Rules cannot see how long a video runs, so
+    // the ten-second limit is enforced in the client and this size cap is the
+    // backstop for ten seconds of very high-resolution recording.
+    function isVideo() {
+      return request.resource.contentType.matches('video/.*');
+    }
+
     function underMb(n) {
       return request.resource.size < n * 1024 * 1024;
     }
@@ -64,7 +71,8 @@ service firebase.storage {
     // known-gap test.
     match /messages/{familyId}/{messageId}/{fileName} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn() && isImage() && underMb(5);
+      allow write: if isSignedIn()
+                      && ((isImage() && underMb(5)) || (isVideo() && underMb(60)));
     }
 
     // --- ANNOUNCEMENT PHOTOS ---

@@ -12,7 +12,7 @@ import Button from '@/components/Button';
 import AttachmentPreview from '@/components/AttachmentPreview';
 import {
   attachmentPath, displayName, formatMessageTime, toDate,
-  validateAttachment, MAX_ATTACHMENTS_PER_MESSAGE,
+  validateAttachmentAsync, MAX_ATTACHMENTS_PER_MESSAGE,
 } from '@/lib/messaging';
 import {
   notifyDaycareOfParentMessage,
@@ -110,12 +110,13 @@ export default function MessageThreadView({
     });
   }, [familyId, daycareId, viewerRole, loading, messages.length]);
 
-  function handleFilesSelected(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFilesSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(e.target.files || []);
     if (!selected.length) return;
 
     for (const file of selected) {
-      const problem = validateAttachment(file);
+      // Video length can only be read from the file's metadata, so this waits.
+      const problem = await validateAttachmentAsync(file, { allowVideo: true });
       if (problem) {
         setError(problem);
         return;
@@ -278,22 +279,37 @@ export default function MessageThreadView({
                         message.attachments.length > 1 ? 'grid-cols-2' : 'grid-cols-1'
                       }`}
                     >
-                      {message.attachments.map((attachment) => (
-                        <a
-                          key={attachment.path}
-                          href={attachment.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
+                      {message.attachments.map((attachment) =>
+                        attachment.contentType?.startsWith('video/') ? (
+                          // playsInline stops iOS taking the video fullscreen
+                          // the moment it is tapped. preload="metadata" fetches
+                          // the first frame for a poster without pulling the
+                          // whole clip down on a phone plan.
+                          <video
+                            key={attachment.path}
                             src={attachment.url}
-                            alt={attachment.fileName}
-                            className="rounded w-full object-cover max-h-56"
+                            controls
+                            playsInline
+                            preload="metadata"
+                            className="rounded w-full max-h-56 bg-black"
                           />
-                        </a>
-                      ))}
+                        ) : (
+                          <a
+                            key={attachment.path}
+                            href={attachment.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={attachment.url}
+                              alt={attachment.fileName}
+                              className="rounded w-full object-cover max-h-56"
+                            />
+                          </a>
+                        )
+                      )}
                     </div>
                   )}
 
@@ -355,9 +371,9 @@ export default function MessageThreadView({
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/*,video/*"
           multiple
-          onChange={handleFilesSelected}
+          onChange={(e) => void handleFilesSelected(e)}
           className="hidden"
           id={`attach-${familyId}`}
         />
