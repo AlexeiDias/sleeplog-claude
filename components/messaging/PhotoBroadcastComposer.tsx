@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, FormEvent } from 'react';
 import Button from '@/components/Button';
 import AttachmentPreview from '@/components/AttachmentPreview';
 import {
-  validateAttachment,
+  validateAttachmentAsync,
   MAX_ATTACHMENTS_PER_MESSAGE,
 } from '@/lib/messaging';
 import {
@@ -72,9 +72,11 @@ export default function PhotoBroadcastComposer({
     );
   }
 
-  function handleFilesPicked(event: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFilesPicked(event: React.ChangeEvent<HTMLInputElement>) {
     const picked = Array.from(event.target.files || []);
-    const problems = picked.map(validateAttachment).filter(Boolean);
+    const problems = (
+      await Promise.all(picked.map((f) => validateAttachmentAsync(f, { allowVideo: true })))
+    ).filter(Boolean);
 
     if (problems.length > 0) {
       setError(problems[0] as string);
@@ -209,9 +211,9 @@ export default function PhotoBroadcastComposer({
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/*,video/*"
           multiple
-          onChange={handleFilesPicked}
+          onChange={(e) => void handleFilesPicked(e)}
           disabled={sending}
           className="block w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700"
         />

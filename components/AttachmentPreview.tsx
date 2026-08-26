@@ -39,18 +39,29 @@ export default function AttachmentPreview({
           key={`${file.name}-${file.size}-${index}`}
           className="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-200 bg-gray-100"
         >
-          {urls[index] && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={urls[index]}
-              alt={file.name || 'Selected photo'}
-              className="w-full h-full object-cover"
-            />
-          )}
+          {urls[index] &&
+            (file.type.startsWith('video/') ? (
+              // muted + preload metadata renders the first frame as a still,
+              // which is all a pre-upload thumbnail needs to be.
+              <video
+                src={urls[index]}
+                muted
+                playsInline
+                preload="metadata"
+                className="w-full h-full object-cover bg-black"
+              />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={urls[index]}
+                alt={file.name || 'Selected photo'}
+                className="w-full h-full object-cover"
+              />
+            ))}
           <button
             type="button"
             onClick={() => onRemove(index)}
-            aria-label={`Remove ${file.name || 'photo'}`}
+            aria-label={`Remove ${file.name || 'attachment'}`}
             className="absolute top-0.5 right-0.5 w-6 h-6 rounded-full bg-black/60 text-white text-sm leading-none flex items-center justify-center hover:bg-black/80"
           >
             ×

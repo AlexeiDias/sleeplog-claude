@@ -86,7 +86,7 @@ export default function ParentMediaPage() {
             <div className="px-4 py-3 border-b bg-gray-50">
               <h3 className="font-medium text-gray-800">{group.label}</h3>
               <p className="text-xs text-gray-500">
-                {group.items.length} photo{group.items.length === 1 ? '' : 's'}
+                {group.items.length} item{group.items.length === 1 ? '' : 's'}
               </p>
             </div>
             <div className="p-3 grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -96,12 +96,29 @@ export default function ParentMediaPage() {
                   onClick={() => setLightbox(item)}
                   className="relative group rounded-lg overflow-hidden aspect-square bg-gray-100"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={item.url}
-                    alt={item.caption || item.fileName}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                  />
+                  {item.contentType?.startsWith('video/') ? (
+                    <>
+                      <video
+                        src={item.url}
+                        muted
+                        playsInline
+                        preload="metadata"
+                        className="w-full h-full object-cover bg-black"
+                      />
+                      <span className="absolute inset-0 flex items-center justify-center text-white text-2xl drop-shadow">
+                        ▶
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={item.url}
+                        alt={item.caption || item.fileName}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      />
+                    </>
+                  )}
                 </button>
               ))}
             </div>
@@ -118,12 +135,24 @@ export default function ParentMediaPage() {
             className="max-w-2xl w-full bg-white rounded-lg overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={lightbox.url}
-              alt={lightbox.caption || lightbox.fileName}
-              className="w-full max-h-[70vh] object-contain bg-black"
-            />
+            {lightbox.contentType?.startsWith('video/') ? (
+              <video
+                src={lightbox.url}
+                controls
+                autoPlay
+                playsInline
+                className="w-full max-h-[70vh] bg-black"
+              />
+            ) : (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={lightbox.url}
+                  alt={lightbox.caption || lightbox.fileName}
+                  className="w-full max-h-[70vh] object-contain bg-black"
+                />
+              </>
+            )}
             <div className="p-4 flex items-start justify-between gap-4">
               <div className="min-w-0">
                 {lightbox.caption && (
