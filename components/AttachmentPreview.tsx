@@ -1,7 +1,7 @@
 //components/AttachmentPreview.tsx
 'use client';
 
-import { useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 /**
  * Thumbnails for files selected but not yet uploaded.
@@ -20,15 +20,24 @@ export default function AttachmentPreview({
   files: File[];
   onRemove: (index: number) => void;
 }) {
-  // Derived during render rather than set from an effect, so a thumbnail is
-  // never one frame behind the file it belongs to.
-  const urls = useMemo(() => files.map((file) => URL.createObjectURL(file)), [files]);
+  // Created inside the effect that revokes them, so the two always agree.
+  //
+  // These used to be derived with useMemo and revoked from a separate effect,
+  // which breaks under React's development double-invoke: the effect mounts,
+  // cleans up and revokes, then mounts again — but the memo does not recompute
+  // for unchanged deps, so the component kept rendering URLs that had already
+  // been revoked. Photos survived it because they had usually decoded by then;
+  // a video loads later and failed with ERR_FILE_NOT_FOUND.
+  const [urls, setUrls] = useState<string[]>([]);
 
-  // Revoke on unmount and whenever the list changes, or every photo picked in
-  // a session stays in memory until the page closes.
   useEffect(() => {
-    return () => urls.forEach((url) => URL.revokeObjectURL(url));
-  }, [urls]);
+    const created = files.map((file) => URL.createObjectURL(file));
+    // Creating and revoking must happen in the same effect, or the two get out
+    // of step under development double-invoke — which is the bug this fixes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setUrls(created);
+    return () => created.forEach((url) => URL.revokeObjectURL(url));
+  }, [files]);
 
   if (files.length === 0) return null;
 
