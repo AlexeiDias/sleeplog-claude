@@ -244,8 +244,12 @@ export default function MessageThreadView({
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50 min-h-[280px]">
+    // flex-1 min-h-0, not h-full: the panels that host this also contain a
+    // header, so h-full meant header height PLUS the full panel height, and
+    // the composer was pushed past the bottom and clipped by overflow-hidden.
+    // min-h-0 is what lets the list below actually scroll inside this.
+    <div className="flex flex-col flex-1 min-h-0">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50 min-h-0">
         {loading ? (
           <p className="text-sm text-gray-500 text-center py-8">Loading…</p>
         ) : messages.length === 0 ? (

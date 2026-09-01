@@ -18,8 +18,8 @@ export default function ParentMessagesPage() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
-      <div className="p-4 border-b">
+    <div className="bg-white rounded-lg shadow overflow-hidden flex flex-col h-[calc(100vh-15rem)] min-h-[280px]">
+      <div className="p-4 border-b shrink-0">
         <h2 className="text-lg font-bold text-gray-800">Messages</h2>
         <p className="text-sm text-gray-600">
           Talk directly with the daycare. Photos welcome.
