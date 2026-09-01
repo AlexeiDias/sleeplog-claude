@@ -145,7 +145,11 @@ export default function StaffMessagesPage() {
           />
         ) : (
         <div className="grid md:grid-cols-[280px_1fr] gap-4">
-          <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div
+            className={`bg-white rounded-lg shadow overflow-hidden md:h-[calc(100vh-15rem)] md:min-h-[280px] flex-col ${
+              selected ? 'hidden md:flex' : 'flex'
+            }`}
+          >
             {loading ? (
               <p className="p-6 text-sm text-gray-500 text-center">Loading…</p>
             ) : rows.length === 0 ? (
@@ -153,7 +157,7 @@ export default function StaffMessagesPage() {
                 No families registered yet.
               </p>
             ) : (
-              <ul className="divide-y max-h-[70vh] overflow-y-auto">
+              <ul className="divide-y h-full overflow-y-auto">
                 {rows.map(({ family, thread }) => {
                   const name = family.motherName || family.fatherName || 'Unknown family';
                   const active = selected?.id === family.id;
@@ -198,10 +202,26 @@ export default function StaffMessagesPage() {
             )}
           </div>
 
-          <div className="bg-white rounded-lg shadow overflow-hidden flex flex-col">
+          {/* A fixed height is what makes MessageThreadView behave as designed:
+              its list is flex-1 overflow-y-auto, but with no height above it
+              the list just grew and the PAGE became the scroll container, so
+              the composer sat at the bottom of a very long page and the
+              auto-scroll dragged the whole page instead of the list. */}
+          <div
+            className={`bg-white rounded-lg shadow overflow-hidden flex-col h-[calc(100vh-15rem)] min-h-[280px] ${
+              selected ? 'flex' : 'hidden md:flex'
+            }`}
+          >
             {selected ? (
               <>
-                <div className="px-4 py-3 border-b">
+                <div className="px-4 py-3 border-b shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setSelected(null)}
+                    className="md:hidden text-sm text-blue-600 hover:underline mb-1"
+                  >
+                    ← All families
+                  </button>
                   <h2 className="font-semibold text-gray-800">
                     {selected.motherName || selected.fatherName || 'Family'}
                   </h2>
